@@ -5,8 +5,6 @@
 a file to be included all the time... carries with it things DMS often uses.
 It includes some handy debugging / testing functions, and includes too many
 standard library headers
-It also defines scalars as either floats or doubles, depending on
-how the program is compiled
 */
 
 #ifdef NVCC
@@ -18,6 +16,7 @@ how the program is compiled
 #define THRESHOLD 1e-18
 #define EPSILON 1e-18
 
+#include <cmath>
 #include <stdio.h>
 #include <cstdlib>
 #include <unistd.h>
@@ -39,23 +38,7 @@ using namespace std;
 //double precision value of pi
 #define PI 3.141592653589793115997963468544185161590576171875
 
-//decide whether to compute everything in floating point or double precision
-#ifndef SCALARFLOAT
-//double variables types
-#define scalar double
-#define scalar2 double2
-#define scalar3 double3
-#define scalar4 double4
-//the cuda RNG
 #define cur_norm curand_normal_double
-#else
-//floats
-#define scalar float
-#define scalar2 float2
-#define scalar3 float3
-#define scalar4 float4
-#define cur_norm curand_normal
-#endif
 
 //!Handle errors in kernel calls...returns file and line numbers if cudaSuccess doesn't pan out
 static void HandleError(cudaError_t err, const char *file, int line)

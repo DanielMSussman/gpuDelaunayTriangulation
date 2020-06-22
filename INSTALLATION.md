@@ -12,7 +12,7 @@ A general CMake scheme is included with the repository.
 
 The current iteration of the code was written using some features of C++11, and was compiled using CUDA-11.01, and gcc/g++-6 but does not use advanced CUDA features. It was tested on a compute_35 GPU.
 
-Default compilation is via CMake, so you need that, too; comparisons between existing triangulation schemes currently use CGAL/
+Default compilation is via CMake, so you need that, too; comparisons between existing triangulation schemes currently use CGAL, using the header-only version 5.0.2
 
 # Operating systems tested
 

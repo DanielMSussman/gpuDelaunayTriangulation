@@ -8,12 +8,66 @@
 #include "DelaunayGPU.h"
 #include "periodicBoundaries.h"
 #include "profiler.h"
+#include "indexer.h"
 
 using namespace std;
 using namespace TCLAP;
 
+
+//! simple output of int vecs
+void printVec(vector<int> &a)
+    {
+    for (int ii = 0; ii < a.size();++ii)
+        cout<< a[ii] << "\t";
+    cout << endl;
+    }
+
+//! Compare neighbors found by different algorithsm. vector<vector< int> > a la CGAL, vs GPUArray<int> together with another GPUArray<int> for number of neighbors each cell has
+void compareTriangulation(vector<vector<int> > &neighs, GPUArray<int> &gNeighs, GPUArray<int> &gNeighborNum)
+    {
+    int N = neighs.size();
+    int neighMax = gNeighs.getNumElements() / N;
+    Index2D nIdx(neighMax,N);
+    ArrayHandle<int> gnn(gNeighborNum);
+    ArrayHandle<int> gn(gNeighs);
+    //test every neighbor list
+    for(int ii = 0; ii < N; ++ii)
+        {
+        vector<int> gpuNeighbors(gnn.data[ii]);
+        vector<int> cpuNeighbors = neighs[ii];
+
+        for (int jj = 0; jj < gnn.data[ii];++jj)
+            gpuNeighbors[jj] = gn.data[nIdx(jj,ii)];
+
+        //prepare to compare vector of neighbors by rotating the gpuNeighborlist as appropriate
+        bool neighborsMatch = true;
+        vector<int>::iterator it;
+        it = std::find(gpuNeighbors.begin(),gpuNeighbors.end(),cpuNeighbors[0]);
+        if (it == gpuNeighbors.end() || gpuNeighbors.size() != cpuNeighbors.size())
+            {
+            neighborsMatch = false;
+            }
+        else
+            {
+            int rotatePos = it - gpuNeighbors.begin();
+            std::rotate(gpuNeighbors.begin(),gpuNeighbors.begin()+rotatePos, gpuNeighbors.end());
+            for (int jj = 0; jj < gpuNeighbors.size(); ++jj)
+                {
+                if (gpuNeighbors[jj] != cpuNeighbors[jj])
+                    neighborsMatch = false;
+                }
+            }
+
+        if (neighborsMatch == false)
+            {
+            cout << " cell " << ii << " failed!";
+            printVec(gpuNeighbors);
+            printVec(neighs[ii]);
+            }
+        }
+    };
 /*!
-core of spherical vertexmodel
+Testing shell for gpuDelaunayTriangulation
 */
 int main(int argc, char*argv[])
 {
@@ -29,18 +83,9 @@ int main(int argc, char*argv[])
     ValueArg<int> programSwitchArg("z","programSwitch","an integer controlling program branch",false,0,"int",cmd);
     ValueArg<int> gpuSwitchArg("g","USEGPU","an integer controlling which gpu to use... g < 0 uses the cpu",false,-1,"int",cmd);
     ValueArg<int> nSwitchArg("n","Number","number of particles in the simulation",false,100,"int",cmd);
-    ValueArg<int> maxIterationsSwitchArg("i","iterations","number of timestep iterations",false,100000,"int",cmd);
+    ValueArg<int> maxIterationsSwitchArg("i","iterations","number of timestep iterations",false,1,"int",cmd);
     ValueArg<int> fileIdxSwitch("f","file","file Index",false,-1,"int",cmd);
-    ValueArg<double> forceToleranceSwitchArg("t","fTarget","target minimization threshold for norm of residual forces",false,0.000000000000001,"double",cmd);
-    ValueArg<double> lengthSwitchArg("l","sideLength","size of simulation domain",false,10.0,"double",cmd);
-    ValueArg<double> krSwitchArg("k","springRatio","kA divided by kP",false,1.0,"double",cmd);
 
-    //allow setting of system size by either volume fraction or density (assuming N has been set)
-    ValueArg<double> p0SwitchArg("p","p0","preferred perimeter",false,3.78,"double",cmd);
-    ValueArg<double> a0SwitchArg("a","a0","preferred area per cell",false,1.0,"double",cmd);
-    ValueArg<double> rhoSwitchArg("r","rho","density",false,-1.0,"double",cmd);
-    ValueArg<double> dtSwitchArg("e","dt","timestep",false,0.001,"double",cmd);
-    ValueArg<double> v0SwitchArg("v","v0","v0",false,0.5,"double",cmd);
     //parse the arguments
     cmd.parse( argc, argv );
 
@@ -48,14 +93,6 @@ int main(int argc, char*argv[])
     int fIdx = fileIdxSwitch.getValue();
     int N = nSwitchArg.getValue();
     int maximumIterations = maxIterationsSwitchArg.getValue();
-    double L = lengthSwitchArg.getValue();
-    double rho = rhoSwitchArg.getValue();
-    double dt = dtSwitchArg.getValue();
-    double v0 = v0SwitchArg.getValue();
-    double p0 = p0SwitchArg.getValue();
-    double a0 = a0SwitchArg.getValue();
-    double kr = krSwitchArg.getValue();
-    double forceCutoff = forceToleranceSwitchArg.getValue();
 
     int gpuSwitch = gpuSwitchArg.getValue();
     bool GPU = false;
@@ -64,63 +101,61 @@ int main(int argc, char*argv[])
 
     bool reproducible = true;
     noiseSource noise(reproducible);
+    profiler delGPUTiming("DelGPU");
+    profiler cgalTiming("CGAL");
 
     vector<double2> initialPositions(N);
-    L = sqrt(N);
+    double L = sqrt(N);
 
-    PeriodicBoxPtr domain = make_shared<periodicBoundaries>(L,L);
-    for (int ii = 0; ii < N; ++ii)
+
+    //for timing tests, iteratate a random triangulation maximumIterations number of times
+    cout << "iterating over " << maximumIterations << " random triangulations of " << N << " points randomly (uniformly) distributed in a square domain"  << endl;
+    for (int iteration = 0; iteration<maximumIterations; ++iteration)
         {
-        initialPositions[ii].x=noise.getRealUniform()*L;
-        initialPositions[ii].y=noise.getRealUniform()*L;
-        }
-    cout << N << " points randomly (uniformly) initialized" << endl;
 
-    DelaunayCGAL cgalTriangulation;
-    vector<pair<Point,int> > pts(N);
-    GPUArray<double2> gpuPts((unsigned int) N);
-    {
-    ArrayHandle<double2> gps(gpuPts);
-    for (int ii = 0; ii < N; ++ii)
+        PeriodicBoxPtr domain = make_shared<periodicBoundaries>(L,L);
+        for (int ii = 0; ii < N; ++ii)
+            {
+            initialPositions[ii].x=noise.getRealUniform()*L;
+            initialPositions[ii].y=noise.getRealUniform()*L;
+            }
+
+        DelaunayCGAL cgalTriangulation;
+        vector<pair<Point,int> > pts(N);
+        GPUArray<double2> gpuPts((unsigned int) N);
         {
-        pts[ii]=make_pair(Point(initialPositions[ii].x,initialPositions[ii].y),ii);
-        gps.data[ii] = initialPositions[ii];
-        }
-    }//end array handle scope
+        ArrayHandle<double2> gps(gpuPts);
+        for (int ii = 0; ii < N; ++ii)
+            {
+            pts[ii]=make_pair(Point(initialPositions[ii].x,initialPositions[ii].y),ii);
+            gps.data[ii] = initialPositions[ii];
+            }
+        }//end array handle scope
 
-    profiler cgalTiming("CGAL");
-    cgalTiming.start();
-    cgalTriangulation.PeriodicTriangulation(pts,L,0,0,L);
-    cgalTiming.end();
+        cgalTiming.start();
+        cgalTriangulation.PeriodicTriangulation(pts,L,0,0,L);
+        cgalTiming.end();
 
-    int maxNeighs = 0;
-    for (int ii = 0; ii < cgalTriangulation.allneighs.size();++ii)
-        if(cgalTriangulation.allneighs[ii].size() > maxNeighs)
-            maxNeighs = cgalTriangulation.allneighs[ii].size();
-    cout << "max neighbors found by CGAL = " << maxNeighs << endl;
+        int maxNeighs = 0;
+        for (int ii = 0; ii < cgalTriangulation.allneighs.size();++ii)
+            if(cgalTriangulation.allneighs[ii].size() > maxNeighs)
+                maxNeighs = cgalTriangulation.allneighs[ii].size();
 
 
+        DelaunayGPU delGPU;
+        GPUArray<int> gpuTriangulation((unsigned int) (maxNeighs+2)*N);
+        GPUArray<int> cellNeighborNumber((unsigned int) N);
+        delGPU.initialize(gpuPts,1.0,N,maxNeighs+2,domain);
 
-    DelaunayGPU delGPU;
-    GPUArray<int> gpuTriangulation((unsigned int) (maxNeighs+2)*N);
-    GPUArray<int> cellNeighborNumber((unsigned int) N);
-    delGPU.initialize(gpuPts,1.0,N,maxNeighs+2,domain);
+        delGPUTiming.start();
+        delGPU.GPU_GlobalDelTriangulation(gpuTriangulation,cellNeighborNumber);
+        delGPUTiming.end();
 
-    profiler delGPUTiming("DelGPU");
-    
-    delGPUTiming.start();
-    delGPU.GPU_GlobalDelTriangulation(gpuTriangulation,cellNeighborNumber);
-    delGPUTiming.end();
+        cout << "testing quality of triangulation..." << endl;
+        compareTriangulation(cgalTriangulation.allneighs, gpuTriangulation,cellNeighborNumber);
+        cout << "... testing done!" << endl;
 
-    {
-    ArrayHandle<int> cnn(cellNeighborNumber);
-    int maxNeighs = 0;
-    for (int ii = 0; ii < N;++ii)
-        if(cnn.data[ii] > maxNeighs)
-            maxNeighs = cnn.data[ii];
-    cout << "max neighbors found by delGPU = " << maxNeighs << endl;
     }
-
     cout << endl;
     cgalTiming.print();cout <<endl;
     delGPUTiming.print();

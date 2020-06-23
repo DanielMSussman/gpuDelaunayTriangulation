@@ -84,6 +84,7 @@ int main(int argc, char*argv[])
     ValueArg<int> gpuSwitchArg("g","USEGPU","an integer controlling which gpu to use... g < 0 uses the cpu",false,-1,"int",cmd);
     ValueArg<int> nSwitchArg("n","Number","number of particles in the simulation",false,100,"int",cmd);
     ValueArg<int> maxIterationsSwitchArg("i","iterations","number of timestep iterations",false,1,"int",cmd);
+    ValueArg<int> maxNeighSwitchArg("m","maxNeighsDefault","default maximum neighbor number for gpu triangulation routine",false,32,"int",cmd);
     ValueArg<int> fileIdxSwitch("f","file","file Index",false,-1,"int",cmd);
 
     //parse the arguments
@@ -93,6 +94,7 @@ int main(int argc, char*argv[])
     int fIdx = fileIdxSwitch.getValue();
     int N = nSwitchArg.getValue();
     int maximumIterations = maxIterationsSwitchArg.getValue();
+    int maxNeighs = maxNeighSwitchArg.getValue();
 
     int gpuSwitch = gpuSwitchArg.getValue();
     bool GPU = false;
@@ -132,14 +134,17 @@ int main(int argc, char*argv[])
             }
         }//end array handle scope
 
-        cgalTiming.start();
-        cgalTriangulation.PeriodicTriangulation(pts,L,0,0,L);
-        cgalTiming.end();
 
-        int maxNeighs = 0;
-        for (int ii = 0; ii < cgalTriangulation.allneighs.size();++ii)
-            if(cgalTriangulation.allneighs[ii].size() > maxNeighs)
-                maxNeighs = cgalTriangulation.allneighs[ii].size();
+        if(programSwitch ==0)
+            {
+            cgalTiming.start();
+            cgalTriangulation.PeriodicTriangulation(pts,L,0,0,L);
+            cgalTiming.end();
+            maxNeighs=0;
+            for (int ii = 0; ii < cgalTriangulation.allneighs.size();++ii)
+                if(cgalTriangulation.allneighs[ii].size() > maxNeighs)
+                    maxNeighs = cgalTriangulation.allneighs[ii].size();
+            }
 
 
         DelaunayGPU delGPU;
@@ -151,16 +156,23 @@ int main(int argc, char*argv[])
         delGPU.GPU_GlobalDelTriangulation(gpuTriangulation,cellNeighborNumber);
         delGPUTiming.end();
 
-        cout << "testing quality of triangulation..." << endl;
-        compareTriangulation(cgalTriangulation.allneighs, gpuTriangulation,cellNeighborNumber);
-        cout << "... testing done!" << endl;
+        if(programSwitch ==0)
+            {
+            cout << "testing quality of triangulation..." << endl;
+            compareTriangulation(cgalTriangulation.allneighs, gpuTriangulation,cellNeighborNumber);
+            cout << "... testing done!" << endl;
+            };
 
     }
     cout << endl;
-    cgalTiming.print();cout <<endl;
     delGPUTiming.print();
+    if(programSwitch==0) 
+        {
+        cgalTiming.print();
+        cout <<endl;
+        cout <<endl << "ratio = " << cgalTiming.timeTaken*delGPUTiming.functionCalls / (cgalTiming.functionCalls * delGPUTiming.timeTaken) << endl;
+        }
 
-    cout <<endl << "ratio = " << cgalTiming.timeTaken*delGPUTiming.functionCalls / (cgalTiming.functionCalls * delGPUTiming.timeTaken) << endl;
 //The end of the tclap try
 //
     } catch (ArgException &e)  // catch any exceptions

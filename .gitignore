@@ -6,7 +6,6 @@
 *_store
 *.dsym
 *.sh
-*.txt
 CMakeLists.txt.user
 CMakeCache*
 CMakeFiles/*

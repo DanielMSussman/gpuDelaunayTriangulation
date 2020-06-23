@@ -16,7 +16,8 @@ Default compilation is via CMake, so you need that, too; comparisons between exi
 
 # Operating systems tested
 
-This code has been compiled and run on Ubuntu 18.04, as well as Windows Subsystems for Linux 2
+This code has been compiled and run on Ubuntu 18.04, as well as Windows Subsystems for Linux 2 -- the fact that MacOS discontinued support
+for CUDA is a major headache, and I am thrilled that as of late May 2020 WSL 2 supports nvidia gpus as well as it does.
 
 # Helpful websites
 The requirements can be obtained by looking at the info on the following:

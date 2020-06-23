@@ -103,6 +103,7 @@ int main(int argc, char*argv[])
 
     bool reproducible = true;
     noiseSource noise(reproducible);
+    profiler delGPUtotalTiming("DelGPUtotal");
     profiler delGPUTiming("DelGPU");
     profiler cgalTiming("CGAL");
 
@@ -148,6 +149,8 @@ int main(int argc, char*argv[])
 
 
         DelaunayGPU delGPU;
+
+        delGPUtotalTiming.start();
         GPUArray<int> gpuTriangulation((unsigned int) (maxNeighs+2)*N);
         GPUArray<int> cellNeighborNumber((unsigned int) N);
         delGPU.initialize(gpuPts,1.0,N,maxNeighs+2,domain);
@@ -155,7 +158,7 @@ int main(int argc, char*argv[])
         delGPUTiming.start();
         delGPU.GPU_GlobalDelTriangulation(gpuTriangulation,cellNeighborNumber);
         delGPUTiming.end();
-
+        delGPUtotalTiming.end();
         if(programSwitch ==0)
             {
             cout << "testing quality of triangulation..." << endl;
@@ -166,6 +169,7 @@ int main(int argc, char*argv[])
     }
     cout << endl;
     delGPUTiming.print();
+    delGPUtotalTiming.print();
     if(programSwitch==0) 
         {
         cgalTiming.print();

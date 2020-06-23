@@ -5,6 +5,9 @@
 
 #include "noiseSource.h"
 #include "DelaunayCGAL.h"
+#include "DelaunayGPU.h"
+#include "periodicBoundaries.h"
+#include "profiler.h"
 
 using namespace std;
 using namespace TCLAP;
@@ -56,14 +59,16 @@ int main(int argc, char*argv[])
 
     int gpuSwitch = gpuSwitchArg.getValue();
     bool GPU = false;
-    //if(gpuSwitch >=0)
-    //    GPU = chooseGPU(gpuSwitch);
+    if(gpuSwitch >=0)
+        GPU = chooseGPU(gpuSwitch);
 
     bool reproducible = true;
     noiseSource noise(reproducible);
 
     vector<double2> initialPositions(N);
     L = sqrt(N);
+
+    PeriodicBoxPtr domain = make_shared<periodicBoundaries>(L,L);
     for (int ii = 0; ii < N; ++ii)
         {
         initialPositions[ii].x=noise.getRealUniform()*L;
@@ -73,17 +78,54 @@ int main(int argc, char*argv[])
 
     DelaunayCGAL cgalTriangulation;
     vector<pair<Point,int> > pts(N);
+    GPUArray<double2> gpuPts((unsigned int) N);
+    {
+    ArrayHandle<double2> gps(gpuPts);
     for (int ii = 0; ii < N; ++ii)
         {
         pts[ii]=make_pair(Point(initialPositions[ii].x,initialPositions[ii].y),ii);
+        gps.data[ii] = initialPositions[ii];
         }
+    }//end array handle scope
 
+    profiler cgalTiming("CGAL");
+    cgalTiming.start();
     cgalTriangulation.PeriodicTriangulation(pts,L,0,0,L);
+    cgalTiming.end();
+
+    int maxNeighs = 0;
     for (int ii = 0; ii < cgalTriangulation.allneighs.size();++ii)
-        cout << cgalTriangulation.allneighs[ii][0] << "\t";
+        if(cgalTriangulation.allneighs[ii].size() > maxNeighs)
+            maxNeighs = cgalTriangulation.allneighs[ii].size();
+    cout << "max neighbors found by CGAL = " << maxNeighs << endl;
+
+
+
+    DelaunayGPU delGPU;
+    GPUArray<int> gpuTriangulation((unsigned int) (maxNeighs+2)*N);
+    GPUArray<int> cellNeighborNumber((unsigned int) N);
+    delGPU.initialize(gpuPts,1.0,N,maxNeighs+2,domain);
+
+    profiler delGPUTiming("DelGPU");
+    
+    delGPUTiming.start();
+    delGPU.GPU_GlobalDelTriangulation(gpuTriangulation,cellNeighborNumber);
+    delGPUTiming.end();
+
+    {
+    ArrayHandle<int> cnn(cellNeighborNumber);
+    int maxNeighs = 0;
+    for (int ii = 0; ii < N;++ii)
+        if(cnn.data[ii] > maxNeighs)
+            maxNeighs = cnn.data[ii];
+    cout << "max neighbors found by delGPU = " << maxNeighs << endl;
+    }
+
     cout << endl;
+    cgalTiming.print();cout <<endl;
+    delGPUTiming.print();
 
-
+    cout <<endl << "ratio = " << cgalTiming.timeTaken*delGPUTiming.functionCalls / (cgalTiming.functionCalls * delGPUTiming.timeTaken) << endl;
 //The end of the tclap try
 //
     } catch (ArgException &e)  // catch any exceptions

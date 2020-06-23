@@ -3,6 +3,8 @@
 #include "noiseSource.cuh"
 #include "std_include.h"
 
+#define nThreads 256
+
 /** \file noiseSource.cu
     * Defines kernel callers and kernels for GPU random number generation
 */
@@ -31,8 +33,8 @@ bool gpu_initialize_RNG_array(curandState *states,
                     int Timestep,
                     int GlobalSeed)
     {
-    unsigned int block_size = 128;
-    if (N < 128) block_size = 32;
+    unsigned int block_size = nThreads;
+    if (N < nThreads) block_size = 32;
     unsigned int nblocks  = N/block_size + 1;
 
 

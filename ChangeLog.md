@@ -2,7 +2,11 @@
 
 ### Changes in progress
 
+### gpuDelaunayTriangulation version 0.2
+
+* testing and optimization
+
 ### gpuDelaunayTriangulation version 0.1
 
-* everything
+* essentially a copy of cellgpu_wdelgputri, but with the majority of cellGPU functionality and code stripped away to make a closer-to-standalone repository
 

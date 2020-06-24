@@ -135,7 +135,6 @@ int main(int argc, char*argv[])
             }
         }//end array handle scope
 
-
         if(programSwitch ==0)
             {
             cgalTiming.start();
@@ -147,16 +146,19 @@ int main(int argc, char*argv[])
                     maxNeighs = cgalTriangulation.allneighs[ii].size();
             }
 
-
-        DelaunayGPU delGPU;
-
-        delGPUtotalTiming.start();
+        double cellSize=1.0;
+        delGPUtotalTiming.start();//include initialization and data transfer times
+        DelaunayGPU delGPU(N, maxNeighs+2, cellSize, domain);
         GPUArray<int> gpuTriangulation((unsigned int) (maxNeighs+2)*N);
         GPUArray<int> cellNeighborNumber((unsigned int) N);
-        delGPU.initialize(gpuPts,1.0,N,maxNeighs+2,domain);
+        {
+        ArrayHandle<double2> gps(gpuPts,access_location::device,access_mode::read);
+        ArrayHandle<int> gt(gpuTriangulation,access_location::device,access_mode::read);
+        ArrayHandle<int> cnn(cellNeighborNumber,access_location::device,access_mode::read);
+        }
 
-        delGPUTiming.start();
-        delGPU.GPU_GlobalDelTriangulation(gpuTriangulation,cellNeighborNumber);
+        delGPUTiming.start();//profile just the triangulation routine
+        delGPU.GPU_GlobalDelTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
         delGPUTiming.end();
         delGPUtotalTiming.end();
         if(programSwitch ==0)
@@ -170,7 +172,7 @@ int main(int argc, char*argv[])
     cout << endl;
     delGPUTiming.print();
     delGPUtotalTiming.print();
-    if(programSwitch==0) 
+    if(programSwitch==0)
         {
         cgalTiming.print();
         cout <<endl;
@@ -184,4 +186,3 @@ int main(int argc, char*argv[])
 
     return 0;
 };
-

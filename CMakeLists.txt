@@ -47,7 +47,7 @@ set(HEADERS
     )
 
 # list the names of cpp files corresponding to linked executables you'd like...NON-GUI
-foreach(ARG triangulation)
+foreach(ARG triangulation computationalTimeScaling)
 add_executable("${ARG}.out" "${ARG}.cpp" )
 target_link_libraries("${ARG}.out" ${myLibs} 
     ${CUDA_LIBRARIES}

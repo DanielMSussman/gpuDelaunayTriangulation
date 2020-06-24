@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.0.0)
 set(CMAKE_C_COMPILER /usr/bin/gcc-6)
 set(CMAKE_CXX_COMPILER /usr/bin/g++-6)
-set(CMAKE_BUILD_TYPE Release)
+
 project(gpuDelaunayTriangulation)
 
 add_definitions(-DENABLE_CUDA)

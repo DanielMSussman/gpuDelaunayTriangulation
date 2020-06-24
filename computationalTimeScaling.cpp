@@ -84,8 +84,8 @@ int main(int argc, char*argv[])
     ValueArg<int> programSwitchArg("z","programSwitch","an integer controlling program branch",false,0,"int",cmd);
     ValueArg<int> gpuSwitchArg("g","USEGPU","an integer controlling which gpu to use... g < 0 uses the cpu",false,-1,"int",cmd);
     ValueArg<int> nSwitchArg("n","Number","number of particles in the simulation",false,100,"int",cmd);
-    ValueArg<int> maxIterationsSwitchArg("i","iterations","number of timestep iterations",false,1,"int",cmd);
-    ValueArg<int> maxNeighSwitchArg("m","maxNeighsDefault","default maximum neighbor number for gpu triangulation routine",false,32,"int",cmd);
+    ValueArg<int> maxIterationsSwitchArg("i","iterations","number of timestep iterations",false,4,"int",cmd);
+    ValueArg<int> maxNeighSwitchArg("m","maxNeighsDefault","default maximum neighbor number for gpu triangulation routine",false,16,"int",cmd);
     ValueArg<int> fileIdxSwitch("f","file","file Index",false,-1,"int",cmd);
 
     //parse the arguments
@@ -104,7 +104,8 @@ int main(int argc, char*argv[])
 
     bool reproducible = true;
     noiseSource noise(reproducible);
-
+    cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop,gpuSwitch);
 
 
     vector<int> ns;
@@ -121,10 +122,14 @@ int main(int argc, char*argv[])
     ns.push_back(100000);
     ns.push_back(200000);
     ns.push_back(400000);
+    ns.push_back(800000);
+    ns.push_back(1600000);
+    ns.push_back(3200000);
+    ns.push_back(6400000);
     time_t now = time(0);
     tm *ltm = localtime(&now);
     char fname[256];
-    sprintf(fname,"timing_%i_%i_%i.txt",ltm->tm_mon,ltm->tm_mday,ltm->tm_hour);
+    sprintf(fname,"timing_%s_%i_%i_%i.txt",prop.name,ltm->tm_mon,ltm->tm_mday,ltm->tm_hour);
 
     ofstream outfile;
     outfile.open(fname);
@@ -208,7 +213,9 @@ int main(int argc, char*argv[])
         cout <<endl << "ratio = " << cgalTiming.timeTaken*delGPUTiming.functionCalls / (cgalTiming.functionCalls * delGPUTiming.timeTaken) << endl;
         }
 
-    outfile << N << "\t" << delGPUTiming.timeTaken/delGPUTiming.functionCalls << "\n";
+    outfile << N << "\t" 
+                << delGPUTiming.timeTaken/delGPUTiming.functionCalls << "\t"
+                << delGPUtotalTiming.timeTaken/delGPUtotalTiming.functionCalls << "\n";
     }
     outfile.close();
 

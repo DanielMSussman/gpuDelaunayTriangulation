@@ -20,7 +20,10 @@ A file providing an interface to the relevant cuda calls for the delaunay GPU cl
 //Use the GPU to copy the arrays into this class.
 //Might not have a performance boost but it reduces HtD memory copies
 bool gpu_setPoints(double2 *hp, double2 *d_pts, int *d_repair, int Nf);
+bool gpu_setCircumcenters(int3 *hp, int3 *d_ccs, int Nf);
 bool gpu_global_repair(int *d_repair, int Nf);
+bool gpu_setRepair(int *hp, int *d_rep, int Nf);
+
 
 bool gpu_Balanced_repair(int *d_repair, 
 		         int Ncells, 

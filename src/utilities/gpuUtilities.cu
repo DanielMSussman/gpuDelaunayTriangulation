@@ -45,9 +45,11 @@ __global__ void gpu_copy_gpuarray_kernel(T *copyInto,T *copyFrom, int N)
     };
 
 template<typename T>
-bool gpu_copy_gpuarray(GPUArray<T> &copyInto,GPUArray<T> &copyFrom,int maxBlockSize)
+bool gpu_copy_gpuarray(GPUArray<T> &copyInto,GPUArray<T> &copyFrom,int numberOfElementsToCopy,int maxBlockSize)
     {
     int N = copyFrom.getNumElements();
+    if(numberOfElementsToCopy >0)
+        N = numberOfElementsToCopy;
     if(copyInto.getNumElements() < N)
         copyInto.resize(N);
     unsigned int block_size = maxBlockSize;
@@ -61,13 +63,15 @@ bool gpu_copy_gpuarray(GPUArray<T> &copyInto,GPUArray<T> &copyFrom,int maxBlockS
     }
 
 //Declare templates used...cuda is annoying sometimes
-template bool gpu_copy_gpuarray<scalar>(GPUArray<double> &copyInto,GPUArray<double> &copyFrom,int maxBlockSize);
-template bool gpu_copy_gpuarray<scalar>(GPUArray<double2> &copyInto,GPUArray<double> &copyFrom,int maxBlockSize);
-template bool gpu_copy_gpuarray<scalar>(GPUArray<int> &copyInto,GPUArray<int> &copyFrom,int maxBlockSize);
-template bool gpu_copy_gpuarray<scalar>(GPUArray<int3> &copyInto,GPUArray<int3> &copyFrom,int maxBlockSize);
+template bool gpu_copy_gpuarray<double>(GPUArray<double> &copyInto,GPUArray<double> &copyFrom,int n, int maxBlockSize);
+template bool gpu_copy_gpuarray<double2>(GPUArray<double2> &copyInto,GPUArray<double2> &copyFrom,int n, int maxBlockSize);
+template bool gpu_copy_gpuarray<int>(GPUArray<int> &copyInto,GPUArray<int> &copyFrom,int n, int maxBlockSize);
+template bool gpu_copy_gpuarray<int3>(GPUArray<int3> &copyInto,GPUArray<int3> &copyFrom,int n, int maxBlockSize);
 
 template bool gpu_set_array<int>(int *,int, int, int);
 template bool gpu_set_array<unsigned int>(unsigned int *,unsigned int, int, int);
-template bool gpu_set_array<int2>(int3 *,int3, int, int);
-template bool gpu_set_array<scalar>(double *,double, int, int);
+template bool gpu_set_array<int2>(int2 *,int2, int, int);
+template bool gpu_set_array<int3>(int3 *,int3, int, int);
+template bool gpu_set_array<double>(double *,double, int, int);
+template bool gpu_set_array<double2>(double2 *,double2, int, int);
 /** @} */ //end of group declaration

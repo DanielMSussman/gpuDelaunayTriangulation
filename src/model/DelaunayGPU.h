@@ -54,68 +54,57 @@ class DelaunayGPU
         //!Tests the circuncircles of the DT to check if they overlap any new poin
         void testTriangulation();
 
-		    //!Globally and locally construct the triangulation via GPU
+        //!Globally and locally construct the triangulation via GPU
         //!Functions used by the GPU DT
         void GPU_LocalDelTriangulation(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
         void GPU_GlobalDelTriangulation(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
 
-		    //These functions rely on the fact that one only needs to calculate 2 triangles in the triangulation per point,
-		    //thus reducing load balancing, but for that a new function needs to be called to do a final ordering.
-		    //It is also worth mentioning that these functions eliminate the need to use the getcircumcircles function,
-		    //as they are a byproduct of the triangulation algorithm
-		    void GPU_BalancedLocalDelTriangulation(GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
-        void GPU_BalancedGlobalDelTriangulation(GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
+    private:
+        //!Functions used by the GPU DT
+        //!Creates the organized array of cells to triangulate
+        void build_repair();
+        void global_repair();
 
-	    private:
-
-		    //!Functions used by the GPU DT
-		    //!Creates the organized array of cells to triangulate
-		    void build_repair();
-		    void global_repair();
-		    void Balanced_repair(GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
-
-		    //!Main function of this class, it performs the Delaunay triangulation
-		    void Voronoi_Calc(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
-		    void Voronoi_Calc();
-		    void get_neighbors(GPUArray<double2> &points,GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
-		    void BalancedGetNeighbors();
-		    void OrganizeDelTriangulation(GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
+        //!Main function of this class, it performs the Delaunay triangulation
+        void Voronoi_Calc(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
+        void Voronoi_Calc();
+        void get_neighbors(GPUArray<double2> &points,GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
 
         //!prep the cell list
         void initializeCellList();
 
-	    protected:
+    protected:
 
-		    //!A helper array used for the triangulation on the GPU, before the topology is known
+        //!A helper array used for the triangulation on the GPU, before the topology is known
         GPUArray<double2> GPUVoroCur;
         GPUArray<double2> GPUDelNeighsPos;
         GPUArray<double> GPUVoroCurRad;
         GPUArray<int> GPUPointIndx;
 
-		    GPUArray<int> neighs;
-		    GPUArray<double2> pts;
-		    GPUArray<int3> delGPUcircumcenters;
-		    GPUArray<int>repair;
+        GPUArray<int> neighs;
+        GPUArray<double2> pts;
+        GPUArray<int3> delGPUcircumcenters;
+        GPUArray<int>repair;
 
-		    bool delGPUcircumcentersInitialized;
+        bool delGPUcircumcentersInitialized;
 
-		    int Ncells;
+        int Ncells;
         //! The maximum number of neighbors any point has
-		    int MaxSize;
-		    int NumCircumCenters;
+        int MaxSize;
+        int NumCircumCenters;
 
-		    //!A list to save all the cells that need fixing
-		    GPUArray<int> sizeFixlist;
+        //!A list to save all the cells that need fixing
+        GPUArray<int> sizeFixlist;
         int size_fixlist;
 
-		    //!A 2dIndexer for computing where in the GPUArray to look for a given particles neighbors GPU
+        //!A 2dIndexer for computing where in the GPUArray to look for a given particles neighbors GPU
         Index2D GPU_idx;
 
-		    //!< A box to calculate relative distances in a periodic domain.
-		    PeriodicBoxPtr Box;
-	 	    //!A cell list for speeding up the calculation of the candidate 1-ring
+        //!< A box to calculate relative distances in a periodic domain.
+        PeriodicBoxPtr Box;
+        //!A cell list for speeding up the calculation of the candidate 1-ring
         cellListGPU cList;
         int cellsize;
-		    bool cListUpdated;
+        bool cListUpdated;
     };
 #endif

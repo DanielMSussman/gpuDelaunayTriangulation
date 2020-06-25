@@ -1,9 +1,7 @@
 #ifndef gpuutilities_CUH__
 #define gpuutilities_CUH__
 
-//#include <cuda_runtime.h>
-//#include "std_include.h"
-//#include "gpuarray.h"
+#include "gpuarray.h"
 
 /*!
  \file gpuUtilities.cuh
@@ -22,7 +20,10 @@ bool gpu_set_array(T *arr,
                    int N,
                    int maxBlockSize=512);
 
-//!copy data into target on the device
+//!copy data into target on the device...copies the first Ntotal elements into the target array, by default it copies all elements
 template<typename T>
-bool gpu_copy_gpuarray(GPUArray<T> &copyInto,GPUArray<T> &copyFrom,int block_size=512);
+bool gpu_copy_gpuarray(GPUArray<T> &copyInto,
+                       GPUArray<T> &copyFrom,
+                       int numberOfElementsToCopy = -1,
+                       int block_size=512);
 #endif

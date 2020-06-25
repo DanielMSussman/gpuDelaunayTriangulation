@@ -1069,6 +1069,19 @@ __global__ void gpu_setPoints_kernel(double2 *hp,
       if(tidx==1)d_repair[Nf]=Nf;
 }
 
+//Kernel to set circumcircles from a supplied GPUArray
+__global__ void gpu_setCircumcenters_kernel(int3 *hp,
+                   int3 *d_ccs,
+                   int Nf)
+{
+      unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
+      if (tidx >= Nf)return;
+
+      d_ccs[tidx].x=hp[tidx].x;
+      d_ccs[tidx].y=hp[tidx].y;
+      d_ccs[tidx].z=hp[tidx].z;
+}
+
 //Kernel that organizes the repair array to be triangulated
 __global__ void gpu_global_repair_kernel(int *d_repair,
                    int Nf)
@@ -1077,6 +1090,17 @@ __global__ void gpu_global_repair_kernel(int *d_repair,
       if (tidx >= Nf)return;
 
       d_repair[tidx]=tidx;
+}
+
+//Kernel that organizes the repair array to be triangulated
+__global__ void gpu_setRepair_kernel(int *hp,
+                   int *d_rep,
+                   int Nf)
+{
+      unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
+      if (tidx >= Nf)return;
+
+      d_rep[tidx]=hp[tidx];
 }
 
 //Kernel that organizes the repair array to be triangulated
@@ -1141,6 +1165,23 @@ bool gpu_Balanced_repair(int *d_repair,
     return cudaSuccess;
 }
 
+bool gpu_setRepair(int *hp,
+                   int *d_rep,
+                   int Nf)
+{
+    unsigned int block_size = 128;
+    if (Nf < 128) block_size = 32;
+    unsigned int nblocks  = Nf/block_size + 1;
+
+    gpu_setRepair_kernel<<<nblocks,block_size>>>(
+                             hp,
+                             d_rep,
+                             Nf);
+
+    HANDLE_ERROR(cudaGetLastError());
+    return cudaSuccess;
+}
+
 bool gpu_global_repair(int *d_repair, 
 		       int Nf)
 {
@@ -1169,6 +1210,23 @@ bool gpu_setPoints(double2 *hp,
                              hp,
                              d_pts, 
                              d_repair, 
+                             Nf);
+
+    HANDLE_ERROR(cudaGetLastError());
+    return cudaSuccess;
+}
+
+bool gpu_setCircumcenters(int3 *hp,
+                          int3 *d_ccs,
+                          int Nf)
+{
+    unsigned int block_size = 128;
+    if (Nf < 128) block_size = 32;
+    unsigned int nblocks  = Nf/block_size + 1;
+
+    gpu_setCircumcenters_kernel<<<nblocks,block_size>>>(
+                             hp,
+                             d_ccs,
                              Nf);
 
     HANDLE_ERROR(cudaGetLastError());

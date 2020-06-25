@@ -1,7 +1,6 @@
 #include "DelaunayGPU.h"
 #include "DelaunayGPU.cuh"
 #include "cellListGPU.cuh"
-#include "gpuUtilities.cuh"
 
 DelaunayGPU::DelaunayGPU() :
 	cellsize(1.10), delGPUcircumcentersInitialized(false), cListUpdated(false), Ncells(0), NumCircumCenters(0)
@@ -32,6 +31,15 @@ void DelaunayGPU::initialize(PeriodicBoxPtr bx)
 		initializeCellList();
 		}
 
+//initialize the class
+void DelaunayGPU::initialize(GPUArray<double2> &points, double csize, int N, const int nmax, PeriodicBoxPtr bx)
+		{
+		Ncells=N;
+		MaxSize=nmax;
+		cellsize=csize;
+		initialize(bx);
+		//setPoints(points);
+		}
 
 //Resize the relevant array for the triangulation
 void DelaunayGPU::resize(const int nmax)
@@ -49,6 +57,29 @@ void DelaunayGPU::resize(const int nmax)
 Use the GPU to copy the arrays into this class.
 Might not have a performance boost but it reduces HtD memory copies
 */
+void DelaunayGPU::setPoints(GPUArray<double2> &points)
+{
+    cListUpdated=false;
+    if(pts.getNumElements()!=points.getNumElements())
+    {
+    Ncells=points.getNumElements();
+    pts.resize(Ncells);
+    neighs.resize(Ncells);
+    repair.resize(Ncells+1);
+    }
+
+    ArrayHandle<double2> hp(points,access_location::device,access_mode::read);
+    ArrayHandle<double2> d_pts(pts,access_location::device,access_mode::overwrite);
+    ArrayHandle<int> d_repair(repair,access_location::device,access_mode::overwrite);
+
+    gpu_setPoints(hp.data, d_pts.data, d_repair.data, Ncells);
+};
+
+/*!
+\param points a GPUArray of double2's with the new desired points
+Use the GPU to copy the arrays into this class.
+Might not have a performance boost but it reduces HtD memory copies
+*/
 void DelaunayGPU::setCircumcenters(GPUArray<int3> &circumcenters)
 {
     if(delGPUcircumcenters.getNumElements()!=circumcenters.getNumElements())
@@ -57,7 +88,10 @@ void DelaunayGPU::setCircumcenters(GPUArray<int3> &circumcenters)
     delGPUcircumcenters.resize(NumCircumCenters);
     }
 
-    gpu_copy_gpuarray<int3>(delGPUcircumcenters,circumcenters);
+    ArrayHandle<int3> hp(circumcenters, access_location::device, access_mode::read);
+    ArrayHandle<int3> d_ccs(delGPUcircumcenters, access_location::device, access_mode::overwrite);
+
+    gpu_setCircumcenters(hp.data, d_ccs.data, NumCircumCenters);
     delGPUcircumcentersInitialized=true;
 };
 
@@ -65,7 +99,7 @@ void DelaunayGPU::setCircumcenters(GPUArray<int3> &circumcenters)
 \param bx a periodicBoundaries that the DelaunayLoc object should use in internal computations
 */
 void DelaunayGPU::setBox(periodicBoundaries &bx)
-    {
+{
     cListUpdated=false;
     Box = make_shared<periodicBoundaries>();
     double b11,b12,b21,b22;
@@ -74,14 +108,14 @@ void DelaunayGPU::setBox(periodicBoundaries &bx)
         Box->setSquare(b11,b22);
     else
         Box->setGeneral(b11,b12,b21,b22);
-    };
+};
 
 void DelaunayGPU::initializeCellList()
-	{
-	cList.setNp(Ncells);
-    cList.setBox(Box);
-    cList.setGridSize(cellsize);
-    }
+		{
+		cList.setNp(Ncells);
+	  cList.setBox(Box);
+	  cList.setGridSize(cellsize);
+		}
 
 //sets the bucket lists with the points that they contain to use later in the triangulation
 void DelaunayGPU::setList(double csize, GPUArray<double2> &points)
@@ -98,26 +132,32 @@ void DelaunayGPU::setList(double csize, GPUArray<double2> &points)
 //if one wants to choose which points they want to repair
 void DelaunayGPU::setRepair(GPUArray<int> &rep)
 {
+
     if(repair.getNumElements()!=rep.getNumElements())
-        {
+    {
 	    printf("GPU DT: repair array has incorrect size. Make sure to update points array first!\n");
 	    throw std::exception();
-        }
-    gpu_copy_gpuarray<int>(repair,rep);
+    }
+
+    ArrayHandle<int> hp(rep,access_location::device,access_mode::read);
+    ArrayHandle<int> d_repair(repair,access_location::device,access_mode::overwrite);
+
+    gpu_setRepair(hp.data, d_repair.data, Ncells+1);
 }
 
 //automatically goes thorough the process of updating the points
 //and lists to get ready for the triangulation (previous initializaton required!).
 void DelaunayGPU::updateList(GPUArray<double2> &points)
-    {
-    cList.computeGPU(points);
-    cudaError_t code = cudaGetLastError();
-    if(code!=cudaSuccess)
-        {
-        printf("cell list computation GPUassert: %s \n", cudaGetErrorString(code));
-        throw std::exception();
-        };
-    cListUpdated=true;
+	{
+	setPoints(points);
+  cList.computeGPU(points);
+  cudaError_t code = cudaGetLastError();
+  if(code!=cudaSuccess)
+      {
+      printf("cell list computation GPUassert: %s \n", cudaGetErrorString(code));
+      throw std::exception();
+      };
+	cListUpdated=true;
 }
 
 //One of the main triangulation routines.
@@ -169,37 +209,148 @@ void DelaunayGPU::GPU_LocalDelTriangulation(GPUArray<double2> &points, GPUArray<
 
 //Main function that does the complete triangulation of all points
 void DelaunayGPU::GPU_GlobalDelTriangulation(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum)
-    {
-	int currentN = points.getNumElements();
-	if(currentN==0)
-        {
-        cout<<"No points in GPU DT"<<endl;
-        return;
-        }
-    if(cListUpdated==false)
 		{
-		cList.computeGPU(points);
-		cListUpdated=true;
-		}
-    if(currentN!=Ncells)
-		{
-		printf("GPU DT Global: Bug in GPU DT\n");
-        throw std::exception();
-		}
+		int currentN = points.getNumElements();
+	if(currentN==0){cout<<"No points in GPU DT"<<endl;return;}
+  if(cListUpdated==false)
+			{
+			cList.computeGPU(points);
+			cListUpdated=true;
+			}
+  if(currentN!=Ncells)
+			{
+			printf("GPU DT Global: Bug in GPU DT\n");
+      throw std::exception();
+			}
 	if(GPUTriangulation.getNumElements()!=GPUVoroCur.getNumElements())
       {
       printf("GPU DT Global: Incorrect sizes in the GPUArrays\n");
       throw std::exception();
       }
 
-    global_repair();
-    size_fixlist=Ncells;
-    Voronoi_Calc(points, GPUTriangulation, cellNeighborNum);
+  global_repair();
+  size_fixlist=Ncells;
+  Voronoi_Calc(points, GPUTriangulation, cellNeighborNum);
 	get_neighbors(points, GPUTriangulation, cellNeighborNum);
 
 	delGPUcircumcentersInitialized=false;
 }
 
+//Same as above but this is more optimized.
+//It does a more balanced triangulation.
+//Which means it only calculates two edges of the triangulation per point.
+//This is enough to get the entire triangulation but a further organization routine needs to be called.
+void DelaunayGPU::GPU_BalancedLocalDelTriangulation(GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum)
+{
+
+        if(pts.getNumElements()==0){printf("No points in GPU DT\n");return;}
+        if(delGPUcircumcenters.getNumElements()==0)
+        {
+                printf("GPU DT Local: No circuncircles for testing\n");
+                throw std::exception();
+        }
+        if(delGPUcircumcentersInitialized==false)
+        {
+                printf("GPU DT Local: No circuncircles initialized\n");
+                throw std::exception();
+        }
+        if(cListUpdated==false)
+        {
+                printf("GPU DT Local: Cell list not updated\n");
+                throw std::exception();
+        }
+        if(pts.getNumElements()!=Ncells)
+        {
+                printf("GPU DT Local: Bug in GPU DT\n");
+                throw std::exception();
+        }
+        if(GPUTriangulation.getNumElements()!=GPUPointIndx.getNumElements())
+        {
+                printf("GPU DT Local: Incorrect size for GPUArrays passed to balanced function\n");
+                throw std::exception();
+        }
+	if(GPUVoroCur.getNumElements()!=MaxSize*Ncells)
+        {
+                printf("GPU DT Local: Incorrect sizes in the GPUArrays\n");
+                throw std::exception();
+        }
+
+        printf("GPU DT Balanced Local: Currently not working properly, use another triangulation method\n");
+        throw std::exception();
+
+        testTriangulation();
+        Balanced_repair(GPUTriangulation, cellNeighborNum);
+        ArrayHandle<int> sizefixlist(sizeFixlist,access_location::host,access_mode::read);
+        size_fixlist=sizefixlist.data[0];
+
+        if(size_fixlist>0)
+        {
+                Voronoi_Calc();
+                BalancedGetNeighbors();
+		OrganizeDelTriangulation(GPUTriangulation, cellNeighborNum);
+        }
+
+	delGPUcircumcentersInitialized=false;
+	//GPU_getCircumcircles();
+}
+
+//Same but for all points
+void DelaunayGPU::GPU_BalancedGlobalDelTriangulation(GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum)
+{
+
+        if(pts.getNumElements()==0){printf("No points in GPU DT\n");return;}
+        if(cListUpdated==false)
+        {
+                printf("GPU DT Local: Cell list not updated\n");
+                throw std::exception();
+        }
+        if(pts.getNumElements()!=Ncells)
+        {
+                printf("GPU DT Local: Bug in GPU DT\n");
+                throw std::exception();
+        }
+        if(GPUTriangulation.getNumElements()!=GPUPointIndx.getNumElements())
+        {
+                printf("GPU DT Local: Incorrect size for GPUArrays passed to balanced function\n");
+                throw std::exception();
+        }
+        if(GPUVoroCur.getNumElements()!=MaxSize*Ncells)
+        {
+                printf("GPU DT Local: Incorrect sizes in the GPUArrays\n");
+                throw std::exception();
+        }
+
+        global_repair();
+        size_fixlist=Ncells;
+        Voronoi_Calc();
+        BalancedGetNeighbors();
+        //OrganizeDelTriangulation(GPUTriangulation, cellNeighborNum);
+
+	delGPUcircumcentersInitialized=false;
+        //GPU_getCircumcircles();
+}
+
+//Helper fucntion to organize repair array to get ready for triangulation
+void DelaunayGPU::Balanced_repair(GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum)
+{
+        ArrayHandle<int> d_repair(repair,access_location::device,access_mode::readwrite);
+        ArrayHandle<int> sizefixlist(sizeFixlist,access_location::device,access_mode::overwrite);
+        ArrayHandle<int> d_Tri(GPUTriangulation,access_location::device,access_mode::read);
+        ArrayHandle<int> d_neighnum(cellNeighborNum,access_location::device,access_mode::read);
+        ArrayHandle<int> d_P_idx(GPUPointIndx,access_location::device,access_mode::readwrite);
+        ArrayHandle<int> d_neighs(neighs,access_location::device,access_mode::overwrite);
+
+
+        gpu_Balanced_repair(d_repair.data,
+                     Ncells,
+                     sizefixlist.data,
+		     d_Tri.data,
+		     d_neighnum.data,
+		     d_P_idx.data,
+		     d_neighs.data,
+		     GPU_idx
+                     );
+}
 
 //Helper fucntion to organize repair array to get ready for triangulation
 void DelaunayGPU::build_repair()
@@ -335,6 +486,63 @@ void DelaunayGPU::Voronoi_Calc()
                    d_repair.data,
                    size_fixlist,
                    GPU_idx
+                   );
+}
+
+//Same as above but used by the balanced section
+void DelaunayGPU::BalancedGetNeighbors()
+{
+  ArrayHandle<double2> d_pt(pts,access_location::device,access_mode::read);
+  ArrayHandle<unsigned int> d_cell_sizes(cList.cell_sizes,access_location::device,access_mode::read);
+  ArrayHandle<int> d_cell_idx(cList.idxs,access_location::device,access_mode::read);
+
+  ArrayHandle<int> d_P_idx(GPUPointIndx,access_location::device,access_mode::readwrite);
+  ArrayHandle<int> d_repair(repair,access_location::device,access_mode::read);
+
+  ArrayHandle<double2> d_Q(GPUVoroCur,access_location::device,access_mode::readwrite);
+  ArrayHandle<double2> d_P(GPUDelNeighsPos,access_location::device,access_mode::readwrite);
+  ArrayHandle<double> d_Q_rad(GPUVoroCurRad,access_location::device,access_mode::readwrite);
+
+
+  gpu_BalancedGetNeighbors(d_pt.data,
+                   d_cell_sizes.data,
+                   d_cell_idx.data,
+                   d_P_idx.data,
+                   d_P.data,
+                   d_Q.data,
+                   d_Q_rad.data,
+                   Ncells,
+                   cList.getXsize(),
+                   cList.getYsize(),
+                   cList.getBoxsize(),
+                   *(Box),
+                   cList.cell_indexer,
+                   cList.cell_list_indexer,
+                   d_repair.data,
+                   size_fixlist,
+                   GPU_idx
+                   );
+}
+
+//Function created to organize the output of the balanced routines to be then sent to the rest of the CellGPU code.
+//Currently not working....
+void DelaunayGPU::OrganizeDelTriangulation(GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum)
+{
+  ArrayHandle<int> d_neighnum(cellNeighborNum,access_location::device,access_mode::readwrite);
+  ArrayHandle<int> d_repair(repair,access_location::device,access_mode::read);
+  ArrayHandle<int> d_Tri(GPUTriangulation,access_location::device,access_mode::readwrite);
+  ArrayHandle<int> P_idx(GPUPointIndx,access_location::device,access_mode::read);
+  ArrayHandle<int> d_neighs(neighs,access_location::device,access_mode::read);
+
+  gpu_OrganizeDelTriangulation(
+                   d_neighnum.data,
+                   Ncells,
+                   d_repair.data,
+                   size_fixlist,
+                   d_Tri.data,
+		   P_idx.data,
+		   d_neighs.data,
+		   GPU_idx
                    );
 }
 

@@ -31,15 +31,6 @@ void DelaunayGPU::initialize(PeriodicBoxPtr bx)
 		initializeCellList();
 		}
 
-//initialize the class
-void DelaunayGPU::initialize(GPUArray<double2> &points, double csize, int N, const int nmax, PeriodicBoxPtr bx)
-		{
-		Ncells=N;
-		MaxSize=nmax;
-		cellsize=csize;
-		initialize(bx);
-		//setPoints(points);
-		}
 
 //Resize the relevant array for the triangulation
 void DelaunayGPU::resize(const int nmax)
@@ -51,29 +42,6 @@ void DelaunayGPU::resize(const int nmax)
        GPUPointIndx.resize(nmax*Ncells);
        GPU_idx = Index2D(nmax,Ncells);
 }
-
-/*!
-\param points a GPUArray of double2's with the new desired points
-Use the GPU to copy the arrays into this class.
-Might not have a performance boost but it reduces HtD memory copies
-*/
-void DelaunayGPU::setPoints(GPUArray<double2> &points)
-{
-    cListUpdated=false;
-    if(pts.getNumElements()!=points.getNumElements())
-    {
-    Ncells=points.getNumElements();
-    pts.resize(Ncells);
-    neighs.resize(Ncells);
-    repair.resize(Ncells+1);
-    }
-
-    ArrayHandle<double2> hp(points,access_location::device,access_mode::read);
-    ArrayHandle<double2> d_pts(pts,access_location::device,access_mode::overwrite);
-    ArrayHandle<int> d_repair(repair,access_location::device,access_mode::overwrite);
-
-    gpu_setPoints(hp.data, d_pts.data, d_repair.data, Ncells);
-};
 
 /*!
 \param points a GPUArray of double2's with the new desired points
@@ -99,7 +67,7 @@ void DelaunayGPU::setCircumcenters(GPUArray<int3> &circumcenters)
 \param bx a periodicBoundaries that the DelaunayLoc object should use in internal computations
 */
 void DelaunayGPU::setBox(periodicBoundaries &bx)
-{
+    {
     cListUpdated=false;
     Box = make_shared<periodicBoundaries>();
     double b11,b12,b21,b22;
@@ -108,14 +76,14 @@ void DelaunayGPU::setBox(periodicBoundaries &bx)
         Box->setSquare(b11,b22);
     else
         Box->setGeneral(b11,b12,b21,b22);
-};
+    };
 
 void DelaunayGPU::initializeCellList()
-		{
-		cList.setNp(Ncells);
-	  cList.setBox(Box);
-	  cList.setGridSize(cellsize);
-		}
+	{
+	cList.setNp(Ncells);
+    cList.setBox(Box);
+    cList.setGridSize(cellsize);
+    }
 
 //sets the bucket lists with the points that they contain to use later in the triangulation
 void DelaunayGPU::setList(double csize, GPUArray<double2> &points)
@@ -134,10 +102,10 @@ void DelaunayGPU::setRepair(GPUArray<int> &rep)
 {
 
     if(repair.getNumElements()!=rep.getNumElements())
-    {
+        {
 	    printf("GPU DT: repair array has incorrect size. Make sure to update points array first!\n");
 	    throw std::exception();
-    }
+        }
 
     ArrayHandle<int> hp(rep,access_location::device,access_mode::read);
     ArrayHandle<int> d_repair(repair,access_location::device,access_mode::overwrite);
@@ -149,7 +117,6 @@ void DelaunayGPU::setRepair(GPUArray<int> &rep)
 //and lists to get ready for the triangulation (previous initializaton required!).
 void DelaunayGPU::updateList(GPUArray<double2> &points)
 	{
-	setPoints(points);
   cList.computeGPU(points);
   cudaError_t code = cudaGetLastError();
   if(code!=cudaSuccess)

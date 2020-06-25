@@ -10,4 +10,5 @@ add_library(utility
 cuda_add_library(utilityGPU
     noiseSource.cu
     cellListGPU.cu
+    gpuUtilities.cu
     )

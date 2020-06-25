@@ -19,44 +19,40 @@ using namespace std;
 
 class DelaunayGPU
     {
-	    public:
+	public:
 
-		    //!Constructor
-		    DelaunayGPU();
+		//!Constructor -- not to be used right now
+		DelaunayGPU();
         //!Constructor + initialiation
         DelaunayGPU(int N, int maximumNeighborsGuess, double cellSize, PeriodicBoxPtr bx);
-		    //!Destructor
-		    ~DelaunayGPU(){};
+		//!Destructor
+		~DelaunayGPU(){};
 
         //!primitive initialization function
         void initialize(PeriodicBoxPtr bx);
-		    //!Initialize various things, based on a given cell size for the underlying grid
-		    void initialize(GPUArray<double2> &points, double csize, int N, const int nmax, PeriodicBoxPtr bx);
-        //!prep the cell list
-        void initializeCellList();
-		    void resize(const int nmax);
 
-		    //!<Set points via a GPUarray
-		    void setPoints(GPUArray<double2> &points);
-		    //!<Set points that need repair via a GPUarray
-		    void setRepair(GPUArray<int> &rep);
-		    //!Set the circumcenters via a GPUArray
-		    void setCircumcenters(GPUArray<int3> &circumcenters);
-		    //!Initialize various things, based on a given cell size for the underlying grid
-		    void setList(double csize, GPUArray<double2> &points);
-		    //!Only update the cell list
-		    void updateList(GPUArray<double2> &points);
-		    //!Set the box
-		    void setBox(periodicBoundaries &bx);
-		    void setBox(PeriodicBoxPtr bx){Box=bx;};
-		    //!Set the cell size of the underlying grid
-		    void setCellSize(double cs){cellsize=cs;};
+        //!function call to change the maximum number of neighbors per point
+        void resize(const int nmax);
 
-	      //!build the auxiliary data structure containing the indices of the particle circumcenters from the neighbor list
+        //!<Set points that need repair via a GPUarray
+        void setRepair(GPUArray<int> &rep);
+        //!Set the circumcenters via a GPUArray
+        void setCircumcenters(GPUArray<int3> &circumcenters);
+        //!Initialize various things, based on a given cell size for the underlying grid
+        void setList(double csize, GPUArray<double2> &points);
+        //!Only update the cell list
+        void updateList(GPUArray<double2> &points);
+        //!Set the box
+        void setBox(periodicBoundaries &bx);
+        void setBox(PeriodicBoxPtr bx){Box=bx;};
+        //!Set the cell size of the underlying grid
+        void setCellSize(double cs){cellsize=cs;};
+
+        //!build the auxiliary data structure containing the indices of the particle circumcenters from the neighbor list
         void getCircumcenters(GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
 
-		    //!Tests the circuncircles of the DT to check if they overlap any new poin
-		    void testTriangulation();
+        //!Tests the circuncircles of the DT to check if they overlap any new poin
+        void testTriangulation();
 
 		    //!Globally and locally construct the triangulation via GPU
         //!Functions used by the GPU DT
@@ -84,6 +80,9 @@ class DelaunayGPU
 		    void get_neighbors(GPUArray<double2> &points,GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
 		    void BalancedGetNeighbors();
 		    void OrganizeDelTriangulation(GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
+
+        //!prep the cell list
+        void initializeCellList();
 
 	    protected:
 

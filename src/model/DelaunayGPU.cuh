@@ -19,18 +19,7 @@ A file providing an interface to the relevant cuda calls for the delaunay GPU cl
 
 //Use the GPU to copy the arrays into this class.
 //Might not have a performance boost but it reduces HtD memory copies
-bool gpu_setPoints(double2 *hp, double2 *d_pts, int *d_repair, int Nf);
 bool gpu_global_repair(int *d_repair, int Nf);
-
-bool gpu_Balanced_repair(int *d_repair, 
-		         int Ncells, 
-			 int *Nf,
-			 int *d_Tri,
-			 int *d_neighnum,
-			 int *P_idx,
-			 int *neighs,
-			 Index2D GPU_idx
-			 );
 
 //test the triangulation to see if it is still valid
 bool gpu_test_circumcenters(int *d_repair,
@@ -111,38 +100,6 @@ bool gpu_get_neighbors(double2* d_pt,
                       int Nf,
                       Index2D GPU_idx
                       );
-
-bool gpu_BalancedGetNeighbors(double2* d_pt,
-                      unsigned int* d_cell_sizes,
-                      int* d_cell_idx,
-                      int* P_idx,
-                      double2* P,
-                      double2* Q,
-                      double* Q_rad,
-                      int Ncells,
-                      int xsize,
-                      int ysize,
-                      double boxsize,
-                      periodicBoundaries Box,
-                      Index2D ci,
-                      Index2D cli,
-                      int* d_fixlist,
-                      int Nf,
-                      Index2D GPU_idx
-                      );
-
-bool gpu_OrganizeDelTriangulation(
-                   int *d_neighnum,
-                   int Ncells,
-                   int *d_repair,
-                   int size_fixlist,
-                   int *d_Tri,
-		   int *P_idx,
-		   int *neighs,
-		   Index2D GPU_idx
-                   );
-
-
 
 
 /** @} */ //end of group declaration

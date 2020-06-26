@@ -14,6 +14,38 @@
     @{
 */
 
+//!distance from origin to line segment -- assumes all minimum image conventions have been taken care of
+__device__ inline double pointLineSegmentDistance(const double2 start, const double2 end)
+    {
+    double2 disp = end-start;
+    double norm = dot(disp,disp);
+    double u = (-start.x*disp.x-start.y*disp.y)/norm;
+    if(u <0)
+        return sqrt(dot(start,start));
+    if(u > 1)
+        return sqrt(dot(end,end));
+    disp = make_double2(start.x+u*disp.x,start.y+u*disp.y);
+    return sqrt(dot(disp,disp));
+    }
+
+/*!
+    What is the minimum distance between a point and a cell bin?
+*/
+__device__ inline void getMinimumDistance(const double2 pt, const int cx, const int cy, const double cellSize, periodicBoundaries &box, double &answer)
+    {
+    double2 c1,c2,c3,c4,p1,p2,p3,p4;
+    c1.x = cx*cellSize;c1.y=cy*cellSize;
+    c2.x = (cx+1)*cellSize;c2.y=cy*cellSize;
+    c3.x = (cx+1)*cellSize;c3.y=(cy+1)*cellSize;
+    c4.x = cx*cellSize;c4.y=(cy+1)*cellSize;
+    box.minDist(pt,c1,p1);
+    box.minDist(pt,c2,p2);
+    box.minDist(pt,c3,p3);
+    box.minDist(pt,c4,p4);
+    answer = min(pointLineSegmentDistance(p1,p2),pointLineSegmentDistance(p2,p3));
+    answer = min(answer,pointLineSegmentDistance(p3,p4));
+    answer = min(answer,pointLineSegmentDistance(p4,p1));
+    }
 
 /*!+*9
   Independently check every triangle in the Delaunay mesh to see if the cirumcircle defined by the
@@ -320,6 +352,10 @@ __global__ void gpu_get_neighbors_kernel(const double2* __restrict__ d_pt,
                 Index2D GPU_idx
                 )
     {
+
+int blah = 0;
+int blah2 = 0;
+
     unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
     if (tidx >= Nf)return;
     unsigned int kidx=d_fixlist[tidx];
@@ -341,30 +377,55 @@ __global__ void gpu_get_neighbors_kernel(const double2* __restrict__ d_pt,
         {
         for(ff=jj; ff<jj+1; ff++)//search the edges
             {
-            pt1=v+Q[GPU_idx(ff,kidx)];
+            pt1=v+Q[GPU_idx(ff,kidx)]; //absolute position (within box) of circumcenter
             Box.putInBoxReal(pt1);
+            double currentRadius = Q_rad[GPU_idx(ff,kidx)];
             cc = max(0,min(xsize-1,(int)floor(pt1.x/boxsize)));
             dd = max(0,min(ysize-1,(int)floor(pt1.y/boxsize)));
             q = ci(cc,dd);
             //check neighbours of Q's cell inside the circumcircle
-            cc = ceil(Q_rad[GPU_idx(ff,kidx)]/boxsize)+1;
+            cc = ceil(currentRadius/boxsize)+1;
             cell_rad_in = min(cc,xsize/2);
             cell_x = q%xsize;
             cell_y = (q - cell_x)/ysize;
+blah2 = max(blah2,cell_rad_in*cell_rad_in);
             for (cc = -cell_rad_in; cc <= cell_rad_in; ++cc)//check neigh i
                 {
                 for (dd = -cell_rad_in; dd <=cell_rad_in; ++dd)//check neigh q
                     {
+                    /*Already, especially for large circumcirles, this would naively check cells that
+                    are far from the cell in question. This entails lots of unnecessary memory accesses,
+                    so we first optimize them away with a sequence of distance checks between the
+                    circumcenter and the target cellList bin. If all circumcircles were small this might be 
+                    a slower approach, but the *imbalance* between circumcircle sizes plays an outside role in 
+                    setting overall speed on the gpu, so I've checked that (at least for uniform point 
+                    distributions) this is a good optimization.
+                    */
                     cx = (cell_x+dd)%xsize;
                     if (cx <0) cx+=xsize;
                     cy = (cell_y+cc)%ysize;
                     if (cy <0) cy+=ysize;
+               
+               /*
+                    double cellDistance=0;
+                    getMinimumDistance(pt1,cx,cy,boxsize,Box,cellDistance);
+
+                    if(cellDistance < currentRadius)
+                        {
+printf("test %f\t %f\n",currentRadius,cellDistance);
+
+                        continue;
+                        }
+                */
+
+
                     //check if there are any points in cellsns, if so do change, otherwise go for next bin
                     bin = ci(cx,cy);
                     numberInCell = d_cell_sizes[bin];
 
                     for (aa = 0; aa < numberInCell; ++aa)//check parts in cell
                         {
+blah +=1;
                         newidx = d_cell_idx[cli(aa,bin)];
                         //6-Compute the half-plane Hv defined by the bissector of v and c, containing c
                         ii=GPU_idx(jj, kidx);
@@ -373,8 +434,8 @@ __global__ void gpu_get_neighbors_kernel(const double2* __restrict__ d_pt,
 
                         //how far is the point from the circumcircle's center?
                         rr=Q_rad[ii]*Q_rad[ii];
-                        Box.minDist(d_pt[newidx], v, disp);
-                        Box.minDist(disp,Q[ii],pt1);
+                        Box.minDist(d_pt[newidx], v, disp); //disp = vector between new point and the point we're constructing the one ring of
+                        Box.minDist(disp,Q[ii],pt1); // pt1 gets overwritten by vector between new point and Pi's circumcenter
                         if(pt1.x*pt1.x+pt1.y*pt1.y>rr)continue;
                         //calculate half-plane bissector
                         if(abs(disp.y)<THRESHOLD)
@@ -527,7 +588,7 @@ __global__ void gpu_get_neighbors_kernel(const double2* __restrict__ d_pt,
         }//end iterative loop over all edges of the 1-ring
 
     d_neighnum[kidx]=poly_size;
-
+//printf(" points checked for kidx %i = %i, first cull = %i, total neighs = %i \n",kidx,blah,blah2,poly_size);
     return;
     }//end function
 

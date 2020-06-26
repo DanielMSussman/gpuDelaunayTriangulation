@@ -319,60 +319,59 @@ __global__ void gpu_get_neighbors_kernel(const double2* __restrict__ d_pt,
                 int Nf,
                 Index2D GPU_idx
                 )
-{
-        unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
-        if (tidx >= Nf)return;
-        unsigned int kidx=d_fixlist[tidx];
-        if (kidx >= Ncells)return;
+    {
+    unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
+    if (tidx >= Nf)return;
+    unsigned int kidx=d_fixlist[tidx];
+    if (kidx >= Ncells)return;
 
-        //I will reuse most variables
-        int Hv[32];//={-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
-        double2 disp, pt1, pt2, v;
-        double rr, xx, yy;
-        unsigned int ii, numberInCell, newidx, iii, aa, removed;
-        int q, pp, m, w, j, jj, cx, cy, save_j, cc, dd, cell_rad_in, bin, cell_x, cell_y, save,ff;
-        unsigned int poly_size=d_neighnum[kidx];
-        v = d_pt[kidx];
-        bool flag=false;
-        bool again=false;
+    //I will reuse most variables
+    int Hv[32];//={-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+    double2 disp, pt1, pt2, v;
+    double rr, xx, yy;
+    unsigned int ii, numberInCell, newidx, iii, aa, removed;
+    int q, pp, m, w, j, jj, cx, cy, save_j, cc, dd, cell_rad_in, bin, cell_x, cell_y, save,ff;
+    unsigned int poly_size=d_neighnum[kidx];
+    v = d_pt[kidx];
+    bool flag=false;
+    bool again=false;
 
 
-        for(jj=0; jj<poly_size; jj++)
+    for(jj=0; jj<poly_size; jj++)
         {
-
-                for(ff=jj; ff<jj+1; ff++)//search the edges
+        for(ff=jj; ff<jj+1; ff++)//search the edges
+            {
+            pt1=v+Q[GPU_idx(ff,kidx)];
+            Box.putInBoxReal(pt1);
+            cc = max(0,min(xsize-1,(int)floor(pt1.x/boxsize)));
+            dd = max(0,min(ysize-1,(int)floor(pt1.y/boxsize)));
+            q = ci(cc,dd);
+            //check neighbours of Q's cell inside the circumcircle
+            cc = ceil(Q_rad[GPU_idx(ff,kidx)]/boxsize)+1;
+            cell_rad_in = min(cc,xsize/2);
+            cell_x = q%xsize;
+            cell_y = (q - cell_x)/ysize;
+            for (cc = -cell_rad_in; cc <= cell_rad_in; ++cc)//check neigh i
                 {
-                        pt1=v+Q[GPU_idx(ff,kidx)];
-                        Box.putInBoxReal(pt1);
-                        cc = max(0,min(xsize-1,(int)floor(pt1.x/boxsize)));
-                        dd = max(0,min(ysize-1,(int)floor(pt1.y/boxsize)));
-                        q = ci(cc,dd);
-                        //check neighbours of Q's cell inside the circumcircle
-                        cc = ceil(Q_rad[GPU_idx(ff,kidx)]/boxsize)+1;
-                        cell_rad_in = min(cc,xsize/2);
-                        cell_x = q%xsize;
-                        cell_y = (q - cell_x)/ysize;
-                        for (cc = -cell_rad_in; cc <= cell_rad_in; ++cc)//check neigh i
+                for (dd = -cell_rad_in; dd <=cell_rad_in; ++dd)//check neigh q
+                    {
+                    cx = (cell_x+dd)%xsize;
+                    if (cx <0) cx+=xsize;
+                    cy = (cell_y+cc)%ysize;
+                    if (cy <0) cy+=ysize;
+                    //check if there are any points in cellsns, if so do change, otherwise go for next bin
+                    bin = ci(cx,cy);
+                    numberInCell = d_cell_sizes[bin];
+
+                    for (aa = 0; aa < numberInCell; ++aa)//check parts in cell
                         {
-                                for (dd = -cell_rad_in; dd <=cell_rad_in; ++dd)//check neigh q
-                                {
-                                        cx = (cell_x+dd)%xsize;
-                                        if (cx <0) cx+=xsize;
-                                        cy = (cell_y+cc)%ysize;
-                                        if (cy <0) cy+=ysize;
-                                        //check if there are any points in cellsns, if so do change, otherwise go for next bin
-                                        bin = ci(cx,cy);
-                                        numberInCell = d_cell_sizes[bin];
+                        newidx = d_cell_idx[cli(aa,bin)];
+                        //6-Compute the half-plane Hv defined by the bissector of v and c, containing c
+                        ii=GPU_idx(jj, kidx);
+                        iii=GPU_idx((jj+1)%poly_size, kidx);
+                        if(newidx==P_idx[ii] || newidx==P_idx[iii] || newidx==kidx)continue;
 
-                                        for (aa = 0; aa < numberInCell; ++aa)//check parts in cell
-                                        {
-                                                newidx = d_cell_idx[cli(aa,bin)];
-                                                //6-Compute the half-plane Hv defined by the bissector of v and c, containing c
-                                                ii=GPU_idx(jj, kidx);
-                                                iii=GPU_idx((jj+1)%poly_size, kidx);
-                                                if(newidx==P_idx[ii] || newidx==P_idx[iii] || newidx==kidx)continue;
-
-                                                //how far is the point from the circumcircle's center?
+                        //how far is the point from the circumcircle's center?
                         rr=Q_rad[ii]*Q_rad[ii];
                         Box.minDist(d_pt[newidx], v, disp);
                         Box.minDist(disp,Q[ii],pt1);
@@ -397,9 +396,9 @@ __global__ void gpu_get_neighbors_kernel(const double2* __restrict__ d_pt,
                         //7-Q<-Hv intersect Q
                         //8-Update P, based on Q (Algorithm 2)      
                         if((disp.x/2-xx)*(disp.y/2-0)-(disp.y/2-yy)*(disp.x/2-0)>0)
-                            cx=0; //which side is v at
+                                cx=0; //which side is v at
                         else
-                            cx=1;
+                                cx=1;
                         cy=0; //which side will Q be at
                         j=jj-1;
                         if(j<0)j+=poly_size;
@@ -506,7 +505,7 @@ __global__ void gpu_get_neighbors_kernel(const double2* __restrict__ d_pt,
                         Q_rad[GPU_idx(j,kidx)]=xx;
                         flag=true;
                         break;
-                        }//end checking all parts in cell
+                        }//end checking all points in the current cell list cell
                     if(flag==true)
                         break;
                     }//end cell neighbor check, q
@@ -525,23 +524,23 @@ __global__ void gpu_get_neighbors_kernel(const double2* __restrict__ d_pt,
             again=false;
             printf("\nAGAIN: %d, %d\n",kidx,jj);
             }
-        }
+        }//end iterative loop over all edges of the 1-ring
 
-      d_neighnum[kidx]=poly_size;
+    d_neighnum[kidx]=poly_size;
 
-      return;
+    return;
     }//end function
 
 
 
 //Kernel that organizes the repair array to be triangulated
 __global__ void gpu_global_repair_kernel(int *d_repair,
-                   int Nf)
+                int Nf)
 {
-      unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
-      if (tidx >= Nf)return;
+        unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
+        if (tidx >= Nf)return;
 
-      d_repair[tidx]=tidx;
+        d_repair[tidx]=tidx;
 }
 
 /////////////////////////////////////////////////////////////
@@ -552,90 +551,90 @@ __global__ void gpu_global_repair_kernel(int *d_repair,
 
 
 bool gpu_global_repair(int *d_repair, 
-		       int Nf)
+                int Nf)
 {
-    unsigned int block_size = 128;
-    if (Nf < 128) block_size = 32;
-    unsigned int nblocks  = Nf/block_size + 1;
+        unsigned int block_size = 128;
+        if (Nf < 128) block_size = 32;
+        unsigned int nblocks  = Nf/block_size + 1;
 
-    gpu_global_repair_kernel<<<nblocks,block_size>>>(
-                             d_repair,
-                             Nf);
+        gpu_global_repair_kernel<<<nblocks,block_size>>>(
+                        d_repair,
+                        Nf);
 
-    HANDLE_ERROR(cudaGetLastError());
-    return cudaSuccess;
+        HANDLE_ERROR(cudaGetLastError());
+        return cudaSuccess;
 }
 
 bool gpu_voronoi_calc(double2* d_pt,
-                      unsigned int* d_cell_sizes,
-                      int* d_cell_idx,
-                      int* P_idx,
-                      double2* P,
-                      double2* Q,
-                      double* Q_rad,
-                      int* d_neighnum,
-                      int Ncells,
-                      int xsize,
-                      int ysize,
-                      double boxsize,
-                      periodicBoundaries Box,
-                      Index2D ci,
-                      Index2D cli,
-                      int* d_fixlist,
-                      int Nf,
-                      Index2D GPU_idx
-                      )
-    {
-    unsigned int block_size = 128;
-    if (Nf < 128) block_size = 32;
-    unsigned int nblocks  = Nf/block_size + 1;
+                unsigned int* d_cell_sizes,
+                int* d_cell_idx,
+                int* P_idx,
+                double2* P,
+                double2* Q,
+                double* Q_rad,
+                int* d_neighnum,
+                int Ncells,
+                int xsize,
+                int ysize,
+                double boxsize,
+                periodicBoundaries Box,
+                Index2D ci,
+                Index2D cli,
+                int* d_fixlist,
+                int Nf,
+                Index2D GPU_idx
+                )
+{
+        unsigned int block_size = 128;
+        if (Nf < 128) block_size = 32;
+        unsigned int nblocks  = Nf/block_size + 1;
 
-    gpu_voronoi_calc_kernel<<<nblocks,block_size>>>(
-                      d_pt,
-                      d_cell_sizes,
-                      d_cell_idx,
-                      P_idx,
-                      P,
-                      Q,
-                      Q_rad,
-                      d_neighnum,
-                      Ncells,
-                      xsize,
-                      ysize,
-                      boxsize,
-                      Box,
-                      ci,
-                      cli,
-                      d_fixlist,
-                      Nf,
-                      GPU_idx
-                      );
+        gpu_voronoi_calc_kernel<<<nblocks,block_size>>>(
+                        d_pt,
+                        d_cell_sizes,
+                        d_cell_idx,
+                        P_idx,
+                        P,
+                        Q,
+                        Q_rad,
+                        d_neighnum,
+                        Ncells,
+                        xsize,
+                        ysize,
+                        boxsize,
+                        Box,
+                        ci,
+                        cli,
+                        d_fixlist,
+                        Nf,
+                        GPU_idx
+                        );
 
-    HANDLE_ERROR(cudaGetLastError());
-    return cudaSuccess;
-    };
+        HANDLE_ERROR(cudaGetLastError());
+        return cudaSuccess;
+};
 
-bool gpu_get_neighbors(double2* d_pt,
-                      unsigned int* d_cell_sizes,
-                      int* d_cell_idx,
-                      int* P_idx,
-                      double2* P,
-                      double2* Q,
-                      double* Q_rad,
-                      int* d_neighnum,
-                      int Ncells,
-                      int xsize,
-                      int ysize,
-                      double boxsize,
-                      periodicBoundaries Box,
-                      Index2D ci,
-                      Index2D cli,
-                      int* d_fixlist,
-                      int Nf,
-                      Index2D GPU_idx
-                      )
-    {
-    unsigned int block_size = 128;
+bool gpu_get_neighbors(double2* d_pt, //the point set
+                unsigned int* d_cell_sizes,//points per bucket
+                int* d_cell_idx,//cellListIdxs
+                int* P_idx,//index of Del Neighbors
+                double2* P,//location del neighborPositions
+                double2* Q,//voronoi vertex positions
+                double* Q_rad,//radius? associated with voro vertex
+                int* d_neighnum,//number of del neighbors
+                int Ncells,
+                int xsize,
+                int ysize,
+                double boxsize,
+                periodicBoundaries Box,
+                Index2D ci,
+                Index2D cli,
+                int* d_fixlist,
+                int Nf,
+                Index2D GPU_idx
+                )
+{
+        unsigned int block_size = 128;
     if (Nf < 128) block_size = 32;
     unsigned int nblocks  = Nf/block_size + 1;
 

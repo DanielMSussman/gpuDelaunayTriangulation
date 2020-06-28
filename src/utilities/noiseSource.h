@@ -19,14 +19,15 @@ class noiseSource
     {
     public:
         //!base constructor
-        noiseSource(bool rep = false)
+        noiseSource(bool rep = false, int seed = 13377)
             {
+            RNGSeed = 13377;
             Reproducible = rep;
-            mt19937 Gener(13377);
+            mt19937 Gener(seed);
         #ifndef DEBUGFLAGUP
             mt19937 GenerRd(rd());
         #else
-            mt19937 GenerRd(13377);
+            mt19937 GenerRd(seed);
         #endif
             gen = Gener;
             genrd=GenerRd;
@@ -68,6 +69,10 @@ class noiseSource
 
         //!allow for whatever GPU RNG initialization is needed
         void initializeGPURNGs(int globalSeed=1337, int tempSeed=0);
+
+        //!a function of convenience...fill a gpuarray of double2s with uniform random numbers
+        void fillArray(GPUArray<double2> &array, double min=0., double max=1.);
+
 
         //!An array random-number-generators for use on the GPU branch of the code
         GPUArray<curandState> RNGs;

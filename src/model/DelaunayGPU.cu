@@ -355,6 +355,8 @@ __global__ void gpu_get_neighbors_kernel(const double2* __restrict__ d_pt,
 
 int blah = 0;
 int blah2 = 0;
+int blah3=0;
+int maxCellsChecked=0;
 
     unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
     if (tidx >= Nf)return;
@@ -368,13 +370,20 @@ int blah2 = 0;
     unsigned int ii, numberInCell, newidx, iii, aa, removed;
     int q, pp, m, w, j, jj, cx, cy, save_j, cc, dd, cell_rad_in, bin, cell_x, cell_y, save,ff;
     unsigned int poly_size=d_neighnum[kidx];
+
+int spotcheck=18;
+if(kidx==spotcheck) printf("initial poly_size = %i\n",poly_size);
+
     v = d_pt[kidx];
     bool flag=false;
     bool again=false;
 
 
+int counter= 0 ;
+
     for(jj=0; jj<poly_size; jj++)
         {
+counter+=1;
         for(ff=jj; ff<jj+1; ff++)//search the edges
             {
             pt1=v+Q[GPU_idx(ff,kidx)]; //absolute position (within box) of circumcenter
@@ -388,7 +397,7 @@ int blah2 = 0;
             cell_rad_in = min(cc,xsize/2);
             cell_x = q%xsize;
             cell_y = (q - cell_x)/ysize;
-blah2 = max(blah2,cell_rad_in*cell_rad_in);
+maxCellsChecked  = max(maxCellsChecked,cell_rad_in*cell_rad_in);
             for (cc = -cell_rad_in; cc <= cell_rad_in; ++cc)//check neigh i
                 {
                 for (dd = -cell_rad_in; dd <=cell_rad_in; ++dd)//check neigh q
@@ -423,6 +432,9 @@ printf("test %f\t %f\n",currentRadius,cellDistance);
                     bin = ci(cx,cy);
                     numberInCell = d_cell_sizes[bin];
 
+//if(kidx==spotcheck) printf("(jj,ff) = (%i,%i)\t counter = %i \t cell_rad_in = %i \t cellIdex = %i\t numberInCell = %i\n",
+//                            jj,ff,counter,cell_rad_in,bin,numberInCell);
+
                     for (aa = 0; aa < numberInCell; ++aa)//check parts in cell
                         {
 blah +=1;
@@ -431,12 +443,13 @@ blah +=1;
                         ii=GPU_idx(jj, kidx);
                         iii=GPU_idx((jj+1)%poly_size, kidx);
                         if(newidx==P_idx[ii] || newidx==P_idx[iii] || newidx==kidx)continue;
-
+blah2+=1;
                         //how far is the point from the circumcircle's center?
                         rr=Q_rad[ii]*Q_rad[ii];
                         Box.minDist(d_pt[newidx], v, disp); //disp = vector between new point and the point we're constructing the one ring of
                         Box.minDist(disp,Q[ii],pt1); // pt1 gets overwritten by vector between new point and Pi's circumcenter
                         if(pt1.x*pt1.x+pt1.y*pt1.y>rr)continue;
+blah3 +=1;
                         //calculate half-plane bissector
                         if(abs(disp.y)<THRESHOLD)
                             {
@@ -588,7 +601,7 @@ blah +=1;
         }//end iterative loop over all edges of the 1-ring
 
     d_neighnum[kidx]=poly_size;
-//printf(" points checked for kidx %i = %i, first cull = %i, total neighs = %i \n",kidx,blah,blah2,poly_size);
+if(kidx==spotcheck) printf(" points checked for kidx %i = %i, ignore self points = %i, ignore points outside circumcircles = %i, total neighs = %i \n",kidx,blah,blah2,blah3,poly_size);
     return;
     }//end function
 

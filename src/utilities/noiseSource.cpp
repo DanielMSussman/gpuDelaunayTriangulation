@@ -47,6 +47,14 @@ double noiseSource::getRealNormal(double mean, double std)
     return answer;
     };
 
+void noiseSource::fillArray(GPUArray<double2> &array, double min, double max)
+    {
+    ArrayHandle<double2> dat(array,access_location::device,access_mode::overwrite);
+    ArrayHandle<curandState> d_curandRNGs(RNGs,access_location::device,access_mode::readwrite);
+
+    gpu_fill_double2_array_uniform(d_curandRNGs.data,dat.data,min,max,array.getNumElements());
+    }
+
 /*!
 \param globalSeed the global seed to use
 \param offset the value of the offset that should be sent to the cuda RNG...

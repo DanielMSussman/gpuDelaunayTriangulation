@@ -20,5 +20,12 @@ bool gpu_initialize_RNG_array(curandState *states,
                     int Timestep,
                     int GlobalSeed
                     );
+
+bool gpu_fill_double2_array_uniform(curandState *states,
+                            double2 *array,
+                            double min,
+                            double max,
+                            int N);
+                            
 /** @} */ //end of group declaration
 #endif

@@ -103,6 +103,9 @@ int main(int argc, char*argv[])
 
     bool reproducible = true;
     noiseSource noise(reproducible);
+    noise.initialize(N);
+    noise.initializeGPURNGs();
+
     profiler delGPUtotalTiming("DelGPUtotal");
     profiler delGPUTiming("DelGPU");
     profiler cgalTiming("CGAL");
@@ -117,26 +120,20 @@ int main(int argc, char*argv[])
         {
 
         PeriodicBoxPtr domain = make_shared<periodicBoundaries>(L,L);
-        for (int ii = 0; ii < N; ++ii)
-            {
-            initialPositions[ii].x=noise.getRealUniform()*L;
-            initialPositions[ii].y=noise.getRealUniform()*L;
-            }
 
-        DelaunayCGAL cgalTriangulation;
         vector<pair<Point,int> > pts(N);
         GPUArray<double2> gpuPts((unsigned int) N);
-        {
-        ArrayHandle<double2> gps(gpuPts);
-        for (int ii = 0; ii < N; ++ii)
-            {
-            pts[ii]=make_pair(Point(initialPositions[ii].x,initialPositions[ii].y),ii);
-            gps.data[ii] = initialPositions[ii];
-            }
-        }//end array handle scope
+        noise.fillArray(gpuPts,0,L);
 
-        if(programSwitch ==0)
+
+        DelaunayCGAL cgalTriangulation;
+        if(programSwitch == 0)
             {
+            ArrayHandle<double2> gps(gpuPts,access_location::host,access_mode::read);
+            for (int ii = 0; ii < N; ++ii)
+                {
+                pts[ii]=make_pair(Point(gps.data[ii].x,gps.data[ii].y),ii);
+                }
             cgalTiming.start();
             cgalTriangulation.PeriodicTriangulation(pts,L,0,0,L);
             cgalTiming.end();
@@ -144,7 +141,11 @@ int main(int argc, char*argv[])
             for (int ii = 0; ii < cgalTriangulation.allneighs.size();++ii)
                 if(cgalTriangulation.allneighs[ii].size() > maxNeighs)
                     maxNeighs = cgalTriangulation.allneighs[ii].size();
+            }//end array handle scope
+            {
+            ArrayHandle<double2> gps(gpuPts,access_location::device,access_mode::read);
             }
+
 
         double cellSize=1.0;
         delGPUtotalTiming.start();//include initialization and data transfer times

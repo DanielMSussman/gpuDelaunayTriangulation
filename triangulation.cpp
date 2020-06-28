@@ -9,6 +9,7 @@
 #include "periodicBoundaries.h"
 #include "profiler.h"
 #include "indexer.h"
+#include "cuda_profiler_api.h"
 
 using namespace std;
 using namespace TCLAP;
@@ -159,7 +160,9 @@ int main(int argc, char*argv[])
         }
 
         delGPUTiming.start();//profile just the triangulation routine
+        cudaProfilerStart();
         delGPU.GPU_GlobalDelTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
+        cudaProfilerStop();
         delGPUTiming.end();
         delGPUtotalTiming.end();
         if(programSwitch ==0)

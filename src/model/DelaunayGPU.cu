@@ -372,7 +372,7 @@ int maxCellsChecked=0;
     unsigned int poly_size=d_neighnum[kidx];
 
 int spotcheck=18;
-if(kidx==spotcheck) printf("initial poly_size = %i\n",poly_size);
+//if(kidx==spotcheck) printf("initial poly_size = %i\n",poly_size);
 
     v = d_pt[kidx];
     bool flag=false;

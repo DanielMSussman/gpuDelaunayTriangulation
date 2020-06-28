@@ -103,7 +103,6 @@ int main(int argc, char*argv[])
         GPU = chooseGPU(gpuSwitch);
 
     bool reproducible = true;
-    noiseSource noise(reproducible);
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop,gpuSwitch);
 
@@ -124,8 +123,6 @@ int main(int argc, char*argv[])
     ns.push_back(400000);
     ns.push_back(800000);
     ns.push_back(1600000);
-    ns.push_back(3200000);
-    ns.push_back(6400000);
     time_t now = time(0);
     tm *ltm = localtime(&now);
     char fname[256];
@@ -136,6 +133,9 @@ int main(int argc, char*argv[])
     for(int nn = 0; nn < ns.size();++nn)
     {
     N=ns[nn];
+    noiseSource noise(reproducible);
+    noise.initialize(N);
+    noise.initializeGPURNGs();
 
     vector<double2> initialPositions(N);
     double L = sqrt(N);
@@ -148,38 +148,40 @@ int main(int argc, char*argv[])
     cout << "iterating over " << maximumIterations << " random triangulations of " << N << " points randomly (uniformly) distributed in a square domain"  << endl;
     for (int iteration = 0; iteration<maximumIterations; ++iteration)
         {
-
+        cout << "iteration "<< iteration << endl << std::flush;
         PeriodicBoxPtr domain = make_shared<periodicBoundaries>(L,L);
-        for (int ii = 0; ii < N; ++ii)
-            {
-            initialPositions[ii].x=noise.getRealUniform()*L;
-            initialPositions[ii].y=noise.getRealUniform()*L;
-            }
-
-        DelaunayCGAL cgalTriangulation;
         vector<pair<Point,int> > pts(N);
         GPUArray<double2> gpuPts((unsigned int) N);
-        {
-        ArrayHandle<double2> gps(gpuPts);
-        for (int ii = 0; ii < N; ++ii)
-            {
-            pts[ii]=make_pair(Point(initialPositions[ii].x,initialPositions[ii].y),ii);
-            gps.data[ii] = initialPositions[ii];
-            }
-        }//end array handle scope
 
+        cout << "\tcreating random points..." << std::flush;
+        noise.fillArray(gpuPts,0,L);
+        cout << "...done" << endl<< std::flush;
+
+        DelaunayCGAL cgalTriangulation;
         if(programSwitch ==0)
             {
+            cout << "\ttriangulating via cgal ..." << std::flush;
+            ArrayHandle<double2> gps(gpuPts,access_location::host,access_mode::read);
+            for (int ii = 0; ii < N; ++ii)
+            {
+                pts[ii]=make_pair(Point(gps.data[ii].x,gps.data[ii].y),ii);
+            }
             cgalTiming.start();
             cgalTriangulation.PeriodicTriangulation(pts,L,0,0,L);
             cgalTiming.end();
+            cout << "...done " <<endl << std::flush;
             maxNeighs=0;
             for (int ii = 0; ii < cgalTriangulation.allneighs.size();++ii)
                 if(cgalTriangulation.allneighs[ii].size() > maxNeighs)
                     maxNeighs = cgalTriangulation.allneighs[ii].size();
             }
+            {
+            ArrayHandle<double2> gps(gpuPts,access_location::device,access_mode::read);
+            }
+
 
         double cellSize=1.0;
+        cout << "\ttriangulating via delGPU..." << std::flush;
         delGPUtotalTiming.start();//include initialization and data transfer times
         DelaunayGPU delGPU(N, maxNeighs+2, cellSize, domain);
         GPUArray<int> gpuTriangulation((unsigned int) (maxNeighs+2)*N);
@@ -194,14 +196,14 @@ int main(int argc, char*argv[])
         delGPU.GPU_GlobalDelTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
         delGPUTiming.end();
         delGPUtotalTiming.end();
+        cout << "...done " <<endl << std::flush;
         if(programSwitch ==0)
             {
-            cout << "testing quality of triangulation..." << endl;
+            cout << "\ttesting quality of triangulation..." << std::flush;
             compareTriangulation(cgalTriangulation.allneighs, gpuTriangulation,cellNeighborNumber);
-            cout << "... testing done!" << endl;
+            cout << "\t... testing done!" << endl << std::flush;
             };
 
-    
     }
     cout << endl;
     delGPUTiming.print();

@@ -153,14 +153,11 @@ __global__ void gpu_size_kernel(
     }
 
 
-/*
-GPU implementatio of the DT. It makes use of a locallity lema described in (doi: 10.1109/ISVD.2012.9). It will only make the repair of the topology in case it is necessary. Steps are detailed as in paper.
+/*!
+device function carries out the task of finding a good enclosing polygon
 */
-//This kernel constructs the initial test polygon.
-//Currently it only uses 4 points, one in each quadrant.
-//The initial test voronoi cell needs to be valid for the algorithm to work.
-//Thus if the search fails, 4 virtual points are used at maximum distance as the starting polygon
-__global__ void gpu_voronoi_calc_kernel(const double2* __restrict__ d_pt,
+__device__ void voronoi_calc_function(        int kidx,
+                                              const double2* __restrict__ d_pt,
                                               const unsigned int* __restrict__ d_cell_sizes,
                                               const int* __restrict__ d_cell_idx,
                                               int* __restrict__ P_idx,
@@ -172,18 +169,12 @@ __global__ void gpu_voronoi_calc_kernel(const double2* __restrict__ d_pt,
                                               int xsize,
                                               int ysize,
                                               double boxsize,
-                                              periodicBoundaries Box,
-                                              Index2D ci,
-                                              Index2D cli,
-                                              const int* __restrict__ d_fixlist,
-                                              int Nf,
-                                              Index2D GPU_idx
+                                              periodicBoundaries &Box,
+                                              Index2D &ci,
+                                              Index2D &cli,
+                                              Index2D &GPU_idx
                                               )
     {
-    unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
-    if (tidx >= Nf)return;
-    unsigned int kidx=d_fixlist[tidx];
-
     int i,j,k;
     double2 pt1,pt2;
     double rr, z1, z2;
@@ -326,13 +317,82 @@ __global__ void gpu_voronoi_calc_kernel(const double2* __restrict__ d_pt,
 
         }//end while
 
+    }
+
+/*
+GPU implementatio of the DT. It makes use of a locallity lema described in (doi: 10.1109/ISVD.2012.9). It will only make the repair of the topology in case it is necessary. Steps are detailed as in paper.
+*/
+//This kernel constructs the initial test polygon.
+//Currently it only uses 4 points, one in each quadrant.
+//The initial test voronoi cell needs to be valid for the algorithm to work.
+//Thus if the search fails, 4 virtual points are used at maximum distance as the starting polygon
+__global__ void gpu_voronoi_calc_kernel(const double2* __restrict__ d_pt,
+                                              const unsigned int* __restrict__ d_cell_sizes,
+                                              const int* __restrict__ d_cell_idx,
+                                              int* __restrict__ P_idx,
+                                              double2* __restrict__ P,
+                                              double2* __restrict__ Q,
+                                              double* __restrict__ Q_rad,
+                                              int* __restrict__ d_neighnum,
+                                              int Ncells,
+                                              int xsize,
+                                              int ysize,
+                                              double boxsize,
+                                              periodicBoundaries Box,
+                                              Index2D ci,
+                                              Index2D cli,
+                                              const int* __restrict__ d_fixlist,
+                                              int Nf,
+                                              Index2D GPU_idx
+                                              )
+    {
+    unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
+    if (tidx >= Nf)return;
+    unsigned int kidx=d_fixlist[tidx];
+
+    voronoi_calc_function(kidx,d_pt,d_cell_sizes,d_cell_idx,
+                          P_idx, P, Q, Q_rad,
+                          d_neighnum,
+                          Ncells, xsize,ysize, boxsize,Box,
+                          ci,cli,GPU_idx);
     return;
     }
 
-//This kernel updates the initial polygon into the real delaunay one.
-//It goes through the same steps as in the paper, using the half plane intersection routine.
-//It outputs the complete triangulation per point in CCW order
-__global__ void gpu_get_neighbors_kernel(const double2* __restrict__ d_pt,
+//!Global voro calc kernel does not need a fixlist
+__global__ void gpu_voronoi_calc_global_kernel(const double2* __restrict__ d_pt,
+                                              const unsigned int* __restrict__ d_cell_sizes,
+                                              const int* __restrict__ d_cell_idx,
+                                              int* __restrict__ P_idx,
+                                              double2* __restrict__ P,
+                                              double2* __restrict__ Q,
+                                              double* __restrict__ Q_rad,
+                                              int* __restrict__ d_neighnum,
+                                              int Ncells,
+                                              int xsize,
+                                              int ysize,
+                                              double boxsize,
+                                              periodicBoundaries Box,
+                                              Index2D ci,
+                                              Index2D cli,
+                                              Index2D GPU_idx
+                                              )
+    {
+    unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
+    if (tidx >= Ncells)return;
+
+    voronoi_calc_function(tidx,d_pt,d_cell_sizes,d_cell_idx,
+                          P_idx, P, Q, Q_rad,
+                          d_neighnum,
+                          Ncells, xsize,ysize, boxsize,Box,
+                          ci,cli,GPU_idx);
+    return;
+    }
+
+/*!
+device function that goes from a candidate 1-ring to an actual 1-ring
+*/
+__device__ void get_oneRing_function(int kidx,
+                const double2* __restrict__ d_pt,
                 const unsigned int* __restrict__ d_cell_sizes,
                 const int* __restrict__ d_cell_idx,
                 int* __restrict__ P_idx,
@@ -344,25 +404,12 @@ __global__ void gpu_get_neighbors_kernel(const double2* __restrict__ d_pt,
                 int xsize,
                 int ysize,
                 double boxsize,
-                periodicBoundaries Box,
-                Index2D ci,
-                Index2D cli,
-                const int* __restrict__ d_fixlist,
-                int Nf,
-                Index2D GPU_idx
+                periodicBoundaries &Box,
+                Index2D &ci,
+                Index2D &cli,
+                Index2D &GPU_idx
                 )
     {
-
-int blah = 0;
-int blah2 = 0;
-int blah3=0;
-int maxCellsChecked=0;
-
-    unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
-    if (tidx >= Nf)return;
-    unsigned int kidx=d_fixlist[tidx];
-    if (kidx >= Ncells)return;
-
     //I will reuse most variables
     int Hv[32];//={-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
     double2 disp, pt1, pt2, v;
@@ -371,7 +418,7 @@ int maxCellsChecked=0;
     int q, pp, m, w, j, jj, cx, cy, save_j, cc, dd, cell_rad_in, bin, cell_x, cell_y, save;
     unsigned int poly_size=d_neighnum[kidx];
 
-int spotcheck=18;
+//int spotcheck=18;
 //if(kidx==spotcheck) printf("initial poly_size = %i\n",poly_size);
 
     v = d_pt[kidx];
@@ -379,11 +426,15 @@ int spotcheck=18;
     bool again=false;
 
 
-int counter= 0 ;
+//int counter= 0 ;
+//int blah = 0;
+//int blah2 = 0;
+//int blah3=0;
+//int maxCellsChecked=0;
 
     for(jj=0; jj<poly_size; jj++)
         {
-counter+=1;
+//counter+=1;
         pt1=v+Q[GPU_idx(jj,kidx)]; //absolute position (within box) of circumcenter
         Box.putInBoxReal(pt1);
         double currentRadius = Q_rad[GPU_idx(jj,kidx)];
@@ -395,7 +446,10 @@ counter+=1;
         cell_rad_in = min(cc,xsize/2);
         cell_x = q%xsize;
         cell_y = (q - cell_x)/ysize;
-        maxCellsChecked  = max(maxCellsChecked,cell_rad_in*cell_rad_in);
+//maxCellsChecked  = max(maxCellsChecked,cell_rad_in*cell_rad_in);
+
+        //This ordering of how the cells are checked is clearly inefficient -- perhaps replace it by a biased
+        //ordereding depending on where the circumcenter is relative to the target point
         for (cc = -cell_rad_in; cc <= cell_rad_in; ++cc)//check neigh i
             {
             for (dd = -cell_rad_in; dd <=cell_rad_in; ++dd)//check neigh q
@@ -429,19 +483,19 @@ counter+=1;
 
                 for (aa = 0; aa < numberInCell; ++aa)//check parts in cell
                     {
-                    blah +=1;
+//blah +=1;
                     newidx = d_cell_idx[cli(aa,bin)];
                     //6-Compute the half-plane Hv defined by the bissector of v and c, containing c
                     ii=GPU_idx(jj, kidx);
                     iii=GPU_idx((jj+1)%poly_size, kidx);
                     if(newidx==P_idx[ii] || newidx==P_idx[iii] || newidx==kidx)continue;
-                    blah2+=1;
+//blah2+=1;
                     //how far is the point from the circumcircle's center?
                     rr=Q_rad[ii]*Q_rad[ii];
                     Box.minDist(d_pt[newidx], v, disp); //disp = vector between new point and the point we're constructing the one ring of
                     Box.minDist(disp,Q[ii],pt1); // pt1 gets overwritten by vector between new point and Pi's circumcenter
                     if(pt1.x*pt1.x+pt1.y*pt1.y>rr)continue;
-                    blah3 +=1;
+//blah3 +=1;
                     //calculate half-plane bissector
                     if(abs(disp.y)<THRESHOLD)
                         {
@@ -593,42 +647,85 @@ counter+=1;
 
     d_neighnum[kidx]=poly_size;
 //    if(kidx==spotcheck) printf(" points checked for kidx %i = %i, ignore self points = %i, ignore points outside circumcircles = %i, total neighs = %i \n",kidx,blah,blah2,blah3,poly_size);
+    }
+
+//This kernel updates the initial polygon into the real delaunay one.
+//It goes through the same steps as in the paper, using the half plane intersection routine.
+//It outputs the complete triangulation per point in CCW order
+__global__ void gpu_get_neighbors_kernel(const double2* __restrict__ d_pt,
+                const unsigned int* __restrict__ d_cell_sizes,
+                const int* __restrict__ d_cell_idx,
+                int* __restrict__ P_idx,
+                double2* __restrict__ P,
+                double2* __restrict__ Q,
+                double* __restrict__ Q_rad,
+                int* __restrict__ d_neighnum,
+                int Ncells,
+                int xsize,
+                int ysize,
+                double boxsize,
+                periodicBoundaries Box,
+                Index2D ci,
+                Index2D cli,
+                const int* __restrict__ d_fixlist,
+                int Nf,
+                Index2D GPU_idx
+                )
+    {
+
+
+    unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
+    if (tidx >= Nf)return;
+    unsigned int kidx=d_fixlist[tidx];
+    if (kidx >= Ncells)return;
+
+    get_oneRing_function(kidx,
+                d_pt,d_cell_sizes,d_cell_idx,P_idx,
+                P,Q,Q_rad,
+                d_neighnum, Ncells,xsize,ysize,
+                boxsize,Box,ci,cli,GPU_idx);
+    return;
+    }//end function
+
+//!global get neighbors does not need a fixlist
+__global__ void gpu_get_neighbors_global_kernel(const double2* __restrict__ d_pt,
+                const unsigned int* __restrict__ d_cell_sizes,
+                const int* __restrict__ d_cell_idx,
+                int* __restrict__ P_idx,
+                double2* __restrict__ P,
+                double2* __restrict__ Q,
+                double* __restrict__ Q_rad,
+                int* __restrict__ d_neighnum,
+                int Ncells,
+                int xsize,
+                int ysize,
+                double boxsize,
+                periodicBoundaries Box,
+                Index2D ci,
+                Index2D cli,
+                Index2D GPU_idx
+                )
+    {
+
+
+    unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
+    if (tidx >= Ncells)return;
+
+    get_oneRing_function(tidx,
+                d_pt,d_cell_sizes,d_cell_idx,P_idx,
+                P,Q,Q_rad,
+                d_neighnum, Ncells,xsize,ysize,
+                boxsize,Box,ci,cli,GPU_idx);
     return;
     }//end function
 
 
-
-//Kernel that organizes the repair array to be triangulated
-__global__ void gpu_global_repair_kernel(int *d_repair,
-                int Nf)
-{
-        unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
-        if (tidx >= Nf)return;
-
-        d_repair[tidx]=tidx;
-}
 
 /////////////////////////////////////////////////////////////
 //////
 //////			Kernel Calls
 //////
 /////////////////////////////////////////////////////////////
-
-
-bool gpu_global_repair(int *d_repair, 
-                int Nf)
-{
-        unsigned int block_size = 128;
-        if (Nf < 128) block_size = 32;
-        unsigned int nblocks  = Nf/block_size + 1;
-
-        gpu_global_repair_kernel<<<nblocks,block_size>>>(
-                        d_repair,
-                        Nf);
-
-        HANDLE_ERROR(cudaGetLastError());
-        return cudaSuccess;
-}
 
 bool gpu_voronoi_calc(double2* d_pt,
                 unsigned int* d_cell_sizes,
@@ -647,14 +744,35 @@ bool gpu_voronoi_calc(double2* d_pt,
                 Index2D cli,
                 int* d_fixlist,
                 int Nf,
-                Index2D GPU_idx
+                Index2D GPU_idx,
+                bool globalRoutine
                 )
 {
         unsigned int block_size = 128;
         if (Nf < 128) block_size = 32;
         unsigned int nblocks  = Nf/block_size + 1;
 
-        gpu_voronoi_calc_kernel<<<nblocks,block_size>>>(
+        if(globalRoutine)
+            gpu_voronoi_calc_global_kernel<<<nblocks,block_size>>>(
+                        d_pt,
+                        d_cell_sizes,
+                        d_cell_idx,
+                        P_idx,
+                        P,
+                        Q,
+                        Q_rad,
+                        d_neighnum,
+                        Ncells,
+                        xsize,
+                        ysize,
+                        boxsize,
+                        Box,
+                        ci,
+                        cli,
+                        GPU_idx
+                        );
+        else
+            gpu_voronoi_calc_kernel<<<nblocks,block_size>>>(
                         d_pt,
                         d_cell_sizes,
                         d_cell_idx,
@@ -696,14 +814,35 @@ bool gpu_get_neighbors(double2* d_pt, //the point set
                 Index2D cli,
                 int* d_fixlist,
                 int Nf,
-                Index2D GPU_idx
+                Index2D GPU_idx,
+                bool globalRoutine
                 )
 {
         unsigned int block_size = 128;
     if (Nf < 128) block_size = 32;
     unsigned int nblocks  = Nf/block_size + 1;
 
-    gpu_get_neighbors_kernel<<<nblocks,block_size>>>(
+    if(globalRoutine)
+        gpu_get_neighbors_global_kernel<<<nblocks,block_size>>>(
+                      d_pt,
+                      d_cell_sizes,
+                      d_cell_idx,
+                      P_idx,
+                      P,
+                      Q,
+                      Q_rad,
+                      d_neighnum,
+                      Ncells,
+                      xsize,
+                      ysize,
+                      boxsize,
+                      Box,
+                      ci,
+                      cli,
+                      GPU_idx
+                      );
+    else
+        gpu_get_neighbors_kernel<<<nblocks,block_size>>>(
                       d_pt,
                       d_cell_sizes,
                       d_cell_idx,
@@ -723,6 +862,7 @@ bool gpu_get_neighbors(double2* d_pt, //the point set
                       Nf,
                       GPU_idx
                       );
+
 
     HANDLE_ERROR(cudaGetLastError());
     return cudaSuccess;

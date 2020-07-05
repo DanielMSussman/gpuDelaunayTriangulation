@@ -63,12 +63,11 @@ class DelaunayGPU
         //!Functions used by the GPU DT
         //!Creates the organized array of cells to triangulate
         void build_repair();
-        void global_repair();
 
         //!Main function of this class, it performs the Delaunay triangulation
-        void Voronoi_Calc(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
+        void Voronoi_Calc(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum,bool callGlobalRoutine=false);
         void Voronoi_Calc();
-        void get_neighbors(GPUArray<double2> &points,GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
+        void get_neighbors(GPUArray<double2> &points,GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum,bool callGlobalRoutine=false);
 
         //!prep the cell list
         void initializeCellList();

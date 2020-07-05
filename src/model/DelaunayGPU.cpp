@@ -192,10 +192,10 @@ void DelaunayGPU::GPU_GlobalDelTriangulation(GPUArray<double2> &points, GPUArray
       throw std::exception();
       }
 
-    global_repair();
     size_fixlist=Ncells;
-    Voronoi_Calc(points, GPUTriangulation, cellNeighborNum);
-	get_neighbors(points, GPUTriangulation, cellNeighborNum);
+    bool callGlobal = true;
+    Voronoi_Calc(points, GPUTriangulation, cellNeighborNum,callGlobal);
+	get_neighbors(points, GPUTriangulation, cellNeighborNum,callGlobal);
 
 	delGPUcircumcentersInitialized=false;
 }
@@ -213,21 +213,10 @@ void DelaunayGPU::build_repair()
                     );
 }
 
-//Helper fucntion to organize repair array to get ready for triangulation
-void DelaunayGPU::global_repair()
-{
-
-        ArrayHandle<int> d_repair(repair,access_location::device,access_mode::readwrite);
-
-        gpu_global_repair(d_repair.data,
-                     Ncells
-                    );
-}
-
 //One of the main functions called by the triangulation.
 //This creates a simple convex polygon around each point for triangulation.
 //Currently the polygon is created with only four points
-void DelaunayGPU::Voronoi_Calc(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum)
+void DelaunayGPU::Voronoi_Calc(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum, bool callGlobalRoutine)
 {
 
   ArrayHandle<double2> d_pt(points,access_location::device,access_mode::read);
@@ -259,13 +248,14 @@ void DelaunayGPU::Voronoi_Calc(GPUArray<double2> &points, GPUArray<int> &GPUTria
                    cList.cell_list_indexer,
                    d_repair.data,
                    size_fixlist,
-                   GPU_idx
+                   GPU_idx,
+                   callGlobalRoutine
                    );
 }
 
 //The final main function of the triangulation.
 //This takes the previous polygon and further updates it to create the final delaunay triangulation
-void DelaunayGPU::get_neighbors(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum)
+void DelaunayGPU::get_neighbors(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum,bool callGlobalRoutine)
 {
 
   ArrayHandle<double2> d_pt(points,access_location::device,access_mode::read);
@@ -297,7 +287,8 @@ void DelaunayGPU::get_neighbors(GPUArray<double2> &points, GPUArray<int> &GPUTri
                    cList.cell_list_indexer,
                    d_repair.data,
                    size_fixlist,
-                   GPU_idx
+                   GPU_idx,
+                   callGlobalRoutine
                    );
 }
 

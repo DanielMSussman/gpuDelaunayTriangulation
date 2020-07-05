@@ -17,10 +17,6 @@ A file providing an interface to the relevant cuda calls for the delaunay GPU cl
  */
 
 
-//Use the GPU to copy the arrays into this class.
-//Might not have a performance boost but it reduces HtD memory copies
-bool gpu_global_repair(int *d_repair, int Nf);
-
 //test the triangulation to see if it is still valid
 bool gpu_test_circumcenters(int *d_repair,
                             int3 *d_ccs,
@@ -76,7 +72,8 @@ bool gpu_voronoi_calc(double2* d_pt,
                       Index2D cli,
                       int* d_fixlist,
                       int Nf,
-                      Index2D GPU_idx
+                      Index2D GPU_idx,
+                      bool globalRoutine=false
                       );
 
 //the meat of the triangulation algorithm, calculates the actual del neighs of cell i
@@ -98,7 +95,8 @@ bool gpu_get_neighbors(double2* d_pt,
                       Index2D cli,
                       int* d_fixlist,
                       int Nf,
-                      Index2D GPU_idx
+                      Index2D GPU_idx,
+                      bool globalRoutine=false
                       );
 
 

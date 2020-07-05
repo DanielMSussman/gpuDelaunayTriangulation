@@ -126,10 +126,8 @@ int main(int argc, char*argv[])
     time_t now = time(0);
     tm *ltm = localtime(&now);
     char fname[256];
-    sprintf(fname,"timing_%s_%i_%i_%i.txt",prop.name,ltm->tm_mon,ltm->tm_mday,ltm->tm_hour);
+    sprintf(fname,"timing_gpu%i_dateTime_%i_%i_%i.txt",gpuSwitch,ltm->tm_mon+1,ltm->tm_mday,ltm->tm_hour);
 
-    ofstream outfile;
-    outfile.open(fname);
     for(int nn = 0; nn < ns.size();++nn)
     {
     N=ns[nn];
@@ -217,12 +215,14 @@ int main(int argc, char*argv[])
         cout <<endl << "ratio = " << ratio << endl;
         }
 
+    ofstream outfile;
+    outfile.open(fname, std::ofstream::out | std::ofstream::app);
     outfile << N << "\t" 
                 << delGPUTiming.timeTaken/delGPUTiming.functionCalls << "\t"
                 << delGPUtotalTiming.timeTaken/delGPUtotalTiming.functionCalls << "\t"
                 << ratio << "\n";
-    }
     outfile.close();
+    }
 
 //The end of the tclap try
 //

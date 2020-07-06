@@ -175,9 +175,12 @@ int main(int argc, char*argv[])
             cout << "... testing done!" << endl;
             };
 
+    cout << endl;
+    //delGPU.prof.print(); //only gives relative timings if cudaDevSynch is used... only for testing on WSL where profiling is harder
     }
     cout << endl;
     mProf.print();
+
 
 //The end of the tclap try
 //

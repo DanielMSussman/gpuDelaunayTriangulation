@@ -4,6 +4,7 @@
 #include "gpuarray.h"
 #include "periodicBoundaries.h"
 #include "cellListGPU.h"
+#include "multiProfiler.h"
 
 using namespace std;
 
@@ -58,6 +59,8 @@ class DelaunayGPU
         //!Functions used by the GPU DT
         void GPU_LocalDelTriangulation(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
         void GPU_GlobalDelTriangulation(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
+
+        multiProfiler prof;
 
     private:
         //!Functions used by the GPU DT

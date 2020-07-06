@@ -19,6 +19,7 @@ DelaunayGPU::DelaunayGPU(int N, int maximumNeighborsGuess, double cellSize, Peri
 //!initialization
 void DelaunayGPU::initialize(PeriodicBoxPtr bx)
 		{
+        prof.start("initialization");
 		setBox(bx);
 		sizeFixlist.resize(1);
 		GPUVoroCur.resize(MaxSize*Ncells);
@@ -30,6 +31,7 @@ void DelaunayGPU::initialize(PeriodicBoxPtr bx)
 		neighs.resize(Ncells);
 		repair.resize(Ncells+1);
 		initializeCellList();
+        prof.end("initialization");
 		}
 
 
@@ -178,7 +180,9 @@ void DelaunayGPU::GPU_GlobalDelTriangulation(GPUArray<double2> &points, GPUArray
         }
     if(cListUpdated==false)
 		{
+        prof.start("cellList");
 		cList.computeGPU(points);
+        prof.end("cellList");
 		cListUpdated=true;
 		}
     if(currentN!=Ncells)
@@ -194,8 +198,12 @@ void DelaunayGPU::GPU_GlobalDelTriangulation(GPUArray<double2> &points, GPUArray
 
     size_fixlist=Ncells;
     bool callGlobal = true;
+    prof.start("vorocalc");
     Voronoi_Calc(points, GPUTriangulation, cellNeighborNum,callGlobal);
+    prof.end("vorocalc");
+    prof.start("get 1 ring");
 	get_neighbors(points, GPUTriangulation, cellNeighborNum,callGlobal);
+    prof.end("get 1 ring");
 
 	delGPUcircumcentersInitialized=false;
 }

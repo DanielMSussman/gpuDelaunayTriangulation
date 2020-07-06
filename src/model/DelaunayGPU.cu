@@ -794,6 +794,7 @@ bool gpu_voronoi_calc(double2* d_pt,
                         );
 
         HANDLE_ERROR(cudaGetLastError());
+//cudaDeviceSynchronize();
         return cudaSuccess;
 };
 
@@ -865,6 +866,7 @@ bool gpu_get_neighbors(double2* d_pt, //the point set
 
 
     HANDLE_ERROR(cudaGetLastError());
+//cudaDeviceSynchronize();
     return cudaSuccess;
     };
 
@@ -887,6 +889,7 @@ bool gpu_build_repair(int* d_repair,
                     );
 
     HANDLE_ERROR(cudaGetLastError());
+//cudaDeviceSynchronize();
     return cudaSuccess;
     };
 
@@ -926,6 +929,7 @@ bool gpu_test_circumcenters(int *d_repair,
                             );
 
     HANDLE_ERROR(cudaGetLastError());
+//cudaDeviceSynchronize();
     return cudaSuccess;
     };
 

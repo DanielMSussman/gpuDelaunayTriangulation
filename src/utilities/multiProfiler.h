@@ -51,8 +51,8 @@ class multiProfiler
             {
             for (map<string,int>::iterator it = processMap.begin(); it != processMap.end(); ++it)
                 {
-                cout << "process "<<(*it).first << " took " << timeTaken[(*it).second]
-                     << " for " << functionCalls[(*it).second] << " function calls" << endl;
+                cout << "process "<<(*it).first << " averaged\t " << timing((*it).first)
+                     << " \t over " << functionCalls[(*it).second] << " function calls" << endl;
                 }
             }
 

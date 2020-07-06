@@ -7,7 +7,6 @@
 #include "DelaunayCGAL.h"
 #include "DelaunayGPU.h"
 #include "periodicBoundaries.h"
-#include "profiler.h"
 #include "multiProfiler.h"
 #include "indexer.h"
 #include "cuda_profiler_api.h"
@@ -113,10 +112,6 @@ int main(int argc, char*argv[])
     noise.initializeGPURNGs();
     mProf.end("noise");
 
-    profiler delGPUtotalTiming("DelGPUtotal");
-    profiler delGPUTiming("DelGPU");
-    profiler cgalTiming("CGAL");
-
     vector<double2> initialPositions(N);
     double L = sqrt(N);
 
@@ -142,9 +137,7 @@ int main(int argc, char*argv[])
                 pts[ii]=make_pair(Point(gps.data[ii].x,gps.data[ii].y),ii);
                 }
             mProf.start("CGAL triangulation");
-            cgalTiming.start();
             cgalTriangulation.PeriodicTriangulation(pts,L,0,0,L);
-            cgalTiming.end();
             mProf.end("CGAL triangulation");
             maxNeighs=0;
             for (int ii = 0; ii < cgalTriangulation.allneighs.size();++ii)
@@ -157,7 +150,7 @@ int main(int argc, char*argv[])
 
 
         double cellSize=1.0;
-        delGPUtotalTiming.start();//include initialization and data transfer times
+        mProf.start("delGPU total timing");
         DelaunayGPU delGPU(N, maxNeighs+2, cellSize, domain);
         GPUArray<int> gpuTriangulation((unsigned int) (maxNeighs+2)*N);
         GPUArray<int> cellNeighborNumber((unsigned int) N);
@@ -167,14 +160,12 @@ int main(int argc, char*argv[])
         ArrayHandle<int> cnn(cellNeighborNumber,access_location::device,access_mode::read);
         }
 
-        delGPUTiming.start();//profile just the triangulation routine
-        mProf.start("delGPU");
+        mProf.start("delGPU triangulation");
         cudaProfilerStart();
         delGPU.GPU_GlobalDelTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
         cudaProfilerStop();
-        mProf.end("delGPU");
-        delGPUTiming.end();
-        delGPUtotalTiming.end();
+        mProf.end("delGPU triangulation");
+        mProf.end("delGPU total timing");
         if(programSwitch ==0)
             {
             cout << "testing quality of triangulation..." << endl;
@@ -186,14 +177,6 @@ int main(int argc, char*argv[])
 
     }
     cout << endl;
-    delGPUTiming.print();
-    delGPUtotalTiming.print();
-    if(programSwitch==0)
-        {
-        cgalTiming.print();
-        cout <<endl;
-        cout <<endl << "ratio = " << cgalTiming.timeTaken*delGPUTiming.functionCalls / (cgalTiming.functionCalls * delGPUTiming.timeTaken) << endl;
-        }
     mProf.print();
 
 //The end of the tclap try

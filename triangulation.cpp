@@ -8,6 +8,7 @@
 #include "DelaunayGPU.h"
 #include "periodicBoundaries.h"
 #include "profiler.h"
+#include "multiProfiler.h"
 #include "indexer.h"
 #include "cuda_profiler_api.h"
 
@@ -103,9 +104,14 @@ int main(int argc, char*argv[])
         GPU = chooseGPU(gpuSwitch);
 
     bool reproducible = true;
+
+    multiProfiler mProf;
+
+    mProf.start("noise");
     noiseSource noise(reproducible);
     noise.initialize(N);
     noise.initializeGPURNGs();
+    mProf.end("noise");
 
     profiler delGPUtotalTiming("DelGPUtotal");
     profiler delGPUTiming("DelGPU");
@@ -135,9 +141,11 @@ int main(int argc, char*argv[])
                 {
                 pts[ii]=make_pair(Point(gps.data[ii].x,gps.data[ii].y),ii);
                 }
+            mProf.start("CGAL triangulation");
             cgalTiming.start();
             cgalTriangulation.PeriodicTriangulation(pts,L,0,0,L);
             cgalTiming.end();
+            mProf.end("CGAL triangulation");
             maxNeighs=0;
             for (int ii = 0; ii < cgalTriangulation.allneighs.size();++ii)
                 if(cgalTriangulation.allneighs[ii].size() > maxNeighs)
@@ -160,15 +168,19 @@ int main(int argc, char*argv[])
         }
 
         delGPUTiming.start();//profile just the triangulation routine
+        mProf.start("delGPU");
         cudaProfilerStart();
         delGPU.GPU_GlobalDelTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
         cudaProfilerStop();
+        mProf.end("delGPU");
         delGPUTiming.end();
         delGPUtotalTiming.end();
         if(programSwitch ==0)
             {
             cout << "testing quality of triangulation..." << endl;
+            mProf.start("triangulation comparison");
             compareTriangulation(cgalTriangulation.allneighs, gpuTriangulation,cellNeighborNumber);
+            mProf.end("triangulation comparison");
             cout << "... testing done!" << endl;
             };
 
@@ -182,6 +194,7 @@ int main(int argc, char*argv[])
         cout <<endl;
         cout <<endl << "ratio = " << cgalTiming.timeTaken*delGPUTiming.functionCalls / (cgalTiming.functionCalls * delGPUTiming.timeTaken) << endl;
         }
+    mProf.print();
 
 //The end of the tclap try
 //

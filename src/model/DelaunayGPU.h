@@ -70,7 +70,7 @@ class DelaunayGPU
         //!Main function of this class, it performs the Delaunay triangulation
         void Voronoi_Calc(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum,bool callGlobalRoutine=false);
         void Voronoi_Calc();
-        void get_neighbors(GPUArray<double2> &points,GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum,bool callGlobalRoutine=false);
+        bool get_neighbors(GPUArray<double2> &points,GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum,bool callGlobalRoutine=false);
 
         //!prep the cell list
         void initializeCellList();
@@ -89,6 +89,9 @@ class DelaunayGPU
         GPUArray<int>repair;
 
         bool delGPUcircumcentersInitialized;
+
+        //!An array that holds a single int keeping track of maximum 1-ring size
+        GPUArray<int> maxOneRingSize;
 
         int Ncells;
         //! The maximum number of neighbors any point has

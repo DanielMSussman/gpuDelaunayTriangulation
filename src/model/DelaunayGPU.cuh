@@ -96,6 +96,8 @@ bool gpu_get_neighbors(double2* d_pt,
                       int* d_fixlist,
                       int Nf,
                       Index2D GPU_idx,
+                      int* maximumNeighborNum,
+                      int currentMaxNeighborNum,
                       bool globalRoutine=false
                       );
 

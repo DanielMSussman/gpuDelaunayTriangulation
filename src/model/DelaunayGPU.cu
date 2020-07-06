@@ -407,7 +407,9 @@ __device__ void get_oneRing_function(int kidx,
                 periodicBoundaries &Box,
                 Index2D &ci,
                 Index2D &cli,
-                Index2D &GPU_idx
+                Index2D &GPU_idx,
+                int const currentMaxNeighbors,
+                int *maximumNeighborNumber
                 )
     {
     //I will reuse most variables
@@ -606,6 +608,12 @@ __device__ void get_oneRing_function(int kidx,
                     if(removed==1)
                         {
                         poly_size++;
+                        if(poly_size > currentMaxNeighbors)
+                            {
+                            atomicMax(&maximumNeighborNumber[0],poly_size);
+                            //printf("excess (%i,%i,%i)\n",poly_size,currentMaxNeighbors,maximumNeighborNumber[0]);
+                            return;
+                            }
                         for(pp=poly_size-2; pp>j; pp--)
                             {
                             Q[GPU_idx(pp+1,kidx)]=Q[GPU_idx(pp,kidx)];
@@ -669,7 +677,9 @@ __global__ void gpu_get_neighbors_kernel(const double2* __restrict__ d_pt,
                 Index2D cli,
                 const int* __restrict__ d_fixlist,
                 int Nf,
-                Index2D GPU_idx
+                Index2D GPU_idx,
+                int *maximumNeighborNum,
+                int currentMaxNeighborNum
                 )
     {
 
@@ -683,7 +693,8 @@ __global__ void gpu_get_neighbors_kernel(const double2* __restrict__ d_pt,
                 d_pt,d_cell_sizes,d_cell_idx,P_idx,
                 P,Q,Q_rad,
                 d_neighnum, Ncells,xsize,ysize,
-                boxsize,Box,ci,cli,GPU_idx);
+                boxsize,Box,ci,cli,GPU_idx,
+                currentMaxNeighborNum,maximumNeighborNum);
     return;
     }//end function
 
@@ -703,7 +714,9 @@ __global__ void gpu_get_neighbors_global_kernel(const double2* __restrict__ d_pt
                 periodicBoundaries Box,
                 Index2D ci,
                 Index2D cli,
-                Index2D GPU_idx
+                Index2D GPU_idx,
+                int *maximumNeighborNum,
+                int currentMaxNeighborNum
                 )
     {
 
@@ -715,7 +728,8 @@ __global__ void gpu_get_neighbors_global_kernel(const double2* __restrict__ d_pt
                 d_pt,d_cell_sizes,d_cell_idx,P_idx,
                 P,Q,Q_rad,
                 d_neighnum, Ncells,xsize,ysize,
-                boxsize,Box,ci,cli,GPU_idx);
+                boxsize,Box,ci,cli,GPU_idx,
+                currentMaxNeighborNum,maximumNeighborNum);
     return;
     }//end function
 
@@ -816,6 +830,8 @@ bool gpu_get_neighbors(double2* d_pt, //the point set
                 int* d_fixlist,
                 int Nf,
                 Index2D GPU_idx,
+                int *maximumNeighborNum,
+                int currentMaxNeighborNum,
                 bool globalRoutine
                 )
 {
@@ -840,7 +856,9 @@ bool gpu_get_neighbors(double2* d_pt, //the point set
                       Box,
                       ci,
                       cli,
-                      GPU_idx
+                      GPU_idx,
+                      maximumNeighborNum,
+                      currentMaxNeighborNum
                       );
     else
         gpu_get_neighbors_kernel<<<nblocks,block_size>>>(
@@ -861,7 +879,9 @@ bool gpu_get_neighbors(double2* d_pt, //the point set
                       cli,
                       d_fixlist,
                       Nf,
-                      GPU_idx
+                      GPU_idx,
+                      maximumNeighborNum,
+                      currentMaxNeighborNum
                       );
 
 

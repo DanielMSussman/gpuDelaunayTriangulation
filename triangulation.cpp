@@ -85,7 +85,7 @@ int main(int argc, char*argv[])
     ValueArg<int> gpuSwitchArg("g","USEGPU","an integer controlling which gpu to use... g < 0 uses the cpu",false,-1,"int",cmd);
     ValueArg<int> nSwitchArg("n","Number","number of particles in the simulation",false,100,"int",cmd);
     ValueArg<int> maxIterationsSwitchArg("i","iterations","number of timestep iterations",false,1,"int",cmd);
-    ValueArg<int> maxNeighSwitchArg("m","maxNeighsDefault","default maximum neighbor number for gpu triangulation routine",false,32,"int",cmd);
+    ValueArg<int> maxNeighSwitchArg("m","maxNeighsDefault","default maximum neighbor number for gpu triangulation routine",false,16,"int",cmd);
     ValueArg<int> fileIdxSwitch("f","file","file Index",false,-1,"int",cmd);
 
     //parse the arguments
@@ -139,10 +139,12 @@ int main(int argc, char*argv[])
             mProf.start("CGAL triangulation");
             cgalTriangulation.PeriodicTriangulation(pts,L,0,0,L);
             mProf.end("CGAL triangulation");
+            /*
             maxNeighs=0;
             for (int ii = 0; ii < cgalTriangulation.allneighs.size();++ii)
                 if(cgalTriangulation.allneighs[ii].size() > maxNeighs)
                     maxNeighs = cgalTriangulation.allneighs[ii].size();
+            */
             }//end array handle scope
             {
             ArrayHandle<double2> gps(gpuPts,access_location::device,access_mode::read);
@@ -151,8 +153,8 @@ int main(int argc, char*argv[])
 
         double cellSize=1.0;
         mProf.start("delGPU total timing");
-        DelaunayGPU delGPU(N, maxNeighs+2, cellSize, domain);
-        GPUArray<int> gpuTriangulation((unsigned int) (maxNeighs+2)*N);
+        DelaunayGPU delGPU(N, maxNeighs, cellSize, domain);
+        GPUArray<int> gpuTriangulation((unsigned int) (maxNeighs)*N);
         GPUArray<int> cellNeighborNumber((unsigned int) N);
         {
         ArrayHandle<double2> gps(gpuPts,access_location::device,access_mode::read);

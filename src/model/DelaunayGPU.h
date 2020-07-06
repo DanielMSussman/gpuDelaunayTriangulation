@@ -62,6 +62,9 @@ class DelaunayGPU
 
         multiProfiler prof;
 
+        //!Set the safetyMode flag...IF safetyMode is false and the assumptions are not satisfied, program will be wrong with (possibly) no warning
+        void setSafetyMode(bool _sm){safetyMode=_sm;};
+
     private:
         //!Functions used by the GPU DT
         //!Creates the organized array of cells to triangulate
@@ -74,6 +77,9 @@ class DelaunayGPU
 
         //!prep the cell list
         void initializeCellList();
+
+        //!If false, the user is guaranteeing that the current maximum number of neighbors per point will not be exceeded
+        bool safetyMode = false;
 
     protected:
 

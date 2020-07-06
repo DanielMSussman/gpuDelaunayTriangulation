@@ -325,17 +325,20 @@ bool DelaunayGPU::get_neighbors(GPUArray<double2> &points, GPUArray<int> &GPUTri
                         callGlobalRoutine
                         );
         }
-        {//check initial maximum ring_size allocated
-        ArrayHandle<int> h_ms(maxOneRingSize, access_location::host,access_mode::read);
-        postCallMaxOneRingSize = h_ms.data[0];
-        }
-        //printf("initial and post %i %i\n", currentMaxOneRingSize,postCallMaxOneRingSize);
-        if(postCallMaxOneRingSize > currentMaxOneRingSize)
+        if(safetyMode)
             {
-            recomputeNeighbors = true;
-            printf("resizing potential neighbors from %i to %i and re-computing...\n",currentMaxOneRingSize,postCallMaxOneRingSize);
-            resize(postCallMaxOneRingSize);
+            {//check initial maximum ring_size allocated
+            ArrayHandle<int> h_ms(maxOneRingSize, access_location::host,access_mode::read);
+            postCallMaxOneRingSize = h_ms.data[0];
             }
+            //printf("initial and post %i %i\n", currentMaxOneRingSize,postCallMaxOneRingSize);
+            if(postCallMaxOneRingSize > currentMaxOneRingSize)
+                {
+                recomputeNeighbors = true;
+                printf("resizing potential neighbors from %i to %i and re-computing...\n",currentMaxOneRingSize,postCallMaxOneRingSize);
+                resize(postCallMaxOneRingSize);
+                }
+            };
     return recomputeNeighbors;
     }
 

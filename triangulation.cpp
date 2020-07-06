@@ -87,6 +87,7 @@ int main(int argc, char*argv[])
     ValueArg<int> maxIterationsSwitchArg("i","iterations","number of timestep iterations",false,1,"int",cmd);
     ValueArg<int> maxNeighSwitchArg("m","maxNeighsDefault","default maximum neighbor number for gpu triangulation routine",false,16,"int",cmd);
     ValueArg<int> fileIdxSwitch("f","file","file Index",false,-1,"int",cmd);
+    ValueArg<int> safetyModeSwitch("s","safetyMode","0 is false, anything else is true", false,0,"int",cmd);
 
     //parse the arguments
     cmd.parse( argc, argv );
@@ -96,6 +97,8 @@ int main(int argc, char*argv[])
     int N = nSwitchArg.getValue();
     int maximumIterations = maxIterationsSwitchArg.getValue();
     int maxNeighs = maxNeighSwitchArg.getValue();
+    
+    bool safetyMode  = safetyModeSwitch.getValue() ==0 ? false : true;
 
     int gpuSwitch = gpuSwitchArg.getValue();
     bool GPU = false;
@@ -154,6 +157,15 @@ int main(int argc, char*argv[])
         double cellSize=1.0;
         mProf.start("delGPU total timing");
         DelaunayGPU delGPU(N, maxNeighs, cellSize, domain);
+
+        /*
+        If true, will successfully rescue triangulation even if maxNeighs is too small.
+        this is currently very slow (can be improved a lot), and will be once 
+        other optimizations are done
+        */
+        delGPU.setSafetyMode(safetyMode);
+        
+        
         GPUArray<int> gpuTriangulation((unsigned int) (maxNeighs)*N);
         GPUArray<int> cellNeighborNumber((unsigned int) N);
         {

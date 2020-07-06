@@ -661,6 +661,7 @@ __device__ void get_oneRing_function(int kidx,
 //This kernel updates the initial polygon into the real delaunay one.
 //It goes through the same steps as in the paper, using the half plane intersection routine.
 //It outputs the complete triangulation per point in CCW order
+template<int N>
 __global__ void gpu_get_neighbors_kernel(const double2* __restrict__ d_pt,
                 const unsigned int* __restrict__ d_cell_sizes,
                 const int* __restrict__ d_cell_idx,
@@ -690,23 +691,13 @@ __global__ void gpu_get_neighbors_kernel(const double2* __restrict__ d_pt,
     unsigned int kidx=d_fixlist[tidx];
     if (kidx >= Ncells)return;
 
-    if(currentMaxNeighborNum < 12)
-        get_oneRing_function<12>(kidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
-    else if (currentMaxNeighborNum < 18) 
-        get_oneRing_function<18>(kidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
-    else if (currentMaxNeighborNum < 24) 
-        get_oneRing_function<24>(kidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
-    else if (currentMaxNeighborNum < 32) 
-        get_oneRing_function<32>(kidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
-    else if (currentMaxNeighborNum < 64) 
-        get_oneRing_function<64>(kidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
-    else
-        get_oneRing_function<128>(kidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+    get_oneRing_function<N>(kidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
 
     return;
     }//end function
 
 //!global get neighbors does not need a fixlist
+template<int N>
 __global__ void gpu_get_neighbors_global_kernel(const double2* __restrict__ d_pt,
                 const unsigned int* __restrict__ d_cell_sizes,
                 const int* __restrict__ d_cell_idx,
@@ -732,18 +723,7 @@ __global__ void gpu_get_neighbors_global_kernel(const double2* __restrict__ d_pt
     unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
     if (tidx >= Ncells)return;
 
-    if(currentMaxNeighborNum < 12)
-        get_oneRing_function<12>(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
-    else if (currentMaxNeighborNum < 18) 
-        get_oneRing_function<18>(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
-    else if (currentMaxNeighborNum < 24) 
-        get_oneRing_function<24>(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
-    else if (currentMaxNeighborNum < 32) 
-        get_oneRing_function<32>(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
-    else if (currentMaxNeighborNum < 64) 
-        get_oneRing_function<64>(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
-    else
-        get_oneRing_function<128>(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+    get_oneRing_function<N>(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
         
     return;
     }//end function
@@ -854,50 +834,72 @@ bool gpu_get_neighbors(double2* d_pt, //the point set
     if (Nf < 128) block_size = 32;
     unsigned int nblocks  = Nf/block_size + 1;
 
+    /*
+    Note: currently this is a templatized work-around for having fixed array sizes for Hv in the one_ring function
+    One option would be to create a new data structure to store the ints of Hv of size N*MaxSize, etc.,
+    or think of something more clever
+    */
+
     if(globalRoutine)
-        gpu_get_neighbors_global_kernel<<<nblocks,block_size>>>(
-                      d_pt,
-                      d_cell_sizes,
-                      d_cell_idx,
-                      P_idx,
-                      P,
-                      Q,
-                      Q_rad,
-                      d_neighnum,
-                      Ncells,
-                      xsize,
-                      ysize,
-                      boxsize,
-                      Box,
-                      ci,
-                      cli,
-                      GPU_idx,
-                      maximumNeighborNum,
-                      currentMaxNeighborNum
+        {
+        if(currentMaxNeighborNum < 12)
+            gpu_get_neighbors_global_kernel<12><<<nblocks,block_size>>>(
+                      d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,
+                      Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
                       );
+        if(currentMaxNeighborNum < 14)
+            gpu_get_neighbors_global_kernel<14><<<nblocks,block_size>>>(
+                      d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,
+                      Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
+                      );
+        if(currentMaxNeighborNum < 16)
+            gpu_get_neighbors_global_kernel<16><<<nblocks,block_size>>>(
+                      d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,
+                      Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
+                      );
+        else if (currentMaxNeighborNum < 24)
+            gpu_get_neighbors_global_kernel<24><<<nblocks,block_size>>>(
+                      d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,
+                      Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
+                      );
+        else if (currentMaxNeighborNum < 32)
+            gpu_get_neighbors_global_kernel<32><<<nblocks,block_size>>>(
+                      d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,
+                      Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
+                      );
+        else if (currentMaxNeighborNum < 64)
+            gpu_get_neighbors_global_kernel<64><<<nblocks,block_size>>>(
+                      d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,
+                      Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
+                      );
+        else
+            UNWRITTENCODE("You have hit an unexpected limit") ;
+        }
     else
-        gpu_get_neighbors_kernel<<<nblocks,block_size>>>(
-                      d_pt,
-                      d_cell_sizes,
-                      d_cell_idx,
-                      P_idx,
-                      P,
-                      Q,
-                      Q_rad,
-                      d_neighnum,
-                      Ncells,
-                      xsize,
-                      ysize,
-                      boxsize,
-                      Box,
-                      ci,
-                      cli,
-                      d_fixlist,
-                      Nf,
-                      GPU_idx,
-                      maximumNeighborNum,
-                      currentMaxNeighborNum
+        {
+        if(currentMaxNeighborNum < 16)
+            gpu_get_neighbors_kernel<16><<<nblocks,block_size>>>(
+                      d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,Ncells,xsize,ysize,
+                      boxsize,Box,ci,cli,d_fixlist,Nf,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
                       );
+        else if (currentMaxNeighborNum < 24)
+            gpu_get_neighbors_kernel<24><<<nblocks,block_size>>>(
+                      d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,Ncells,xsize,ysize,
+                      boxsize,Box,ci,cli,d_fixlist,Nf,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
+                      );
+        else if (currentMaxNeighborNum < 32)
+            gpu_get_neighbors_kernel<32><<<nblocks,block_size>>>(
+                      d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,Ncells,xsize,ysize,
+                      boxsize,Box,ci,cli,d_fixlist,Nf,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
+                      );
+        else if (currentMaxNeighborNum < 64)
+            gpu_get_neighbors_kernel<64><<<nblocks,block_size>>>(
+                      d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,Ncells,xsize,ysize,
+                      boxsize,Box,ci,cli,d_fixlist,Nf,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
+                      );
+        else
+            UNWRITTENCODE("You have hit an unexpected limit") ;
+        }
 
 
     HANDLE_ERROR(cudaGetLastError());

@@ -391,6 +391,7 @@ __global__ void gpu_voronoi_calc_global_kernel(const double2* __restrict__ d_pt,
 /*!
 device function that goes from a candidate 1-ring to an actual 1-ring
 */
+template<int N>
 __device__ void get_oneRing_function(int kidx,
                 const double2* __restrict__ d_pt,
                 const unsigned int* __restrict__ d_cell_sizes,
@@ -413,7 +414,7 @@ __device__ void get_oneRing_function(int kidx,
                 )
     {
     //I will reuse most variables
-    int Hv[32];//={-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+    int Hv[N];//={-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
     double2 disp, pt1, pt2, v;
     double rr, xx, yy;
     unsigned int ii, numberInCell, newidx, iii, aa, removed;
@@ -689,12 +690,19 @@ __global__ void gpu_get_neighbors_kernel(const double2* __restrict__ d_pt,
     unsigned int kidx=d_fixlist[tidx];
     if (kidx >= Ncells)return;
 
-    get_oneRing_function(kidx,
-                d_pt,d_cell_sizes,d_cell_idx,P_idx,
-                P,Q,Q_rad,
-                d_neighnum, Ncells,xsize,ysize,
-                boxsize,Box,ci,cli,GPU_idx,
-                currentMaxNeighborNum,maximumNeighborNum);
+    if(currentMaxNeighborNum < 12)
+        get_oneRing_function<12>(kidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+    else if (currentMaxNeighborNum < 18) 
+        get_oneRing_function<18>(kidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+    else if (currentMaxNeighborNum < 24) 
+        get_oneRing_function<24>(kidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+    else if (currentMaxNeighborNum < 32) 
+        get_oneRing_function<32>(kidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+    else if (currentMaxNeighborNum < 64) 
+        get_oneRing_function<64>(kidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+    else
+        get_oneRing_function<128>(kidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+
     return;
     }//end function
 
@@ -724,12 +732,19 @@ __global__ void gpu_get_neighbors_global_kernel(const double2* __restrict__ d_pt
     unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
     if (tidx >= Ncells)return;
 
-    get_oneRing_function(tidx,
-                d_pt,d_cell_sizes,d_cell_idx,P_idx,
-                P,Q,Q_rad,
-                d_neighnum, Ncells,xsize,ysize,
-                boxsize,Box,ci,cli,GPU_idx,
-                currentMaxNeighborNum,maximumNeighborNum);
+    if(currentMaxNeighborNum < 12)
+        get_oneRing_function<12>(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+    else if (currentMaxNeighborNum < 18) 
+        get_oneRing_function<18>(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+    else if (currentMaxNeighborNum < 24) 
+        get_oneRing_function<24>(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+    else if (currentMaxNeighborNum < 32) 
+        get_oneRing_function<32>(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+    else if (currentMaxNeighborNum < 64) 
+        get_oneRing_function<64>(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+    else
+        get_oneRing_function<128>(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+        
     return;
     }//end function
 

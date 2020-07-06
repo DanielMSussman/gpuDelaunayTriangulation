@@ -82,7 +82,7 @@ int main(int argc, char*argv[])
     //define the various command line strings that can be passed in...
     //ValueArg<T> variableName("shortflag","longFlag","description",required or not, default value,"value type",CmdLine object to add to
     ValueArg<int> programSwitchArg("z","programSwitch","an integer controlling program branch",false,0,"int",cmd);
-    ValueArg<int> gpuSwitchArg("g","USEGPU","an integer controlling which gpu to use... g < 0 uses the cpu",false,-1,"int",cmd);
+    ValueArg<int> gpuSwitchArg("g","USEGPU","an integer controlling which gpu to use... g < 0 uses the cpu",false,0,"int",cmd);
     ValueArg<int> nSwitchArg("n","Number","number of particles in the simulation",false,100,"int",cmd);
     ValueArg<int> maxIterationsSwitchArg("i","iterations","number of timestep iterations",false,4,"int",cmd);
     ValueArg<int> maxNeighSwitchArg("m","maxNeighsDefault","default maximum neighbor number for gpu triangulation routine",false,16,"int",cmd);
@@ -126,10 +126,8 @@ int main(int argc, char*argv[])
     time_t now = time(0);
     tm *ltm = localtime(&now);
     char fname[256];
-    sprintf(fname,"timing_%s_%i_%i_%i.txt",prop.name,ltm->tm_mon,ltm->tm_mday,ltm->tm_hour);
+    sprintf(fname,"timing_gpu%i_dateTime_%i_%i_%i.txt",gpuSwitch,ltm->tm_mon+1,ltm->tm_mday,ltm->tm_hour);
 
-    ofstream outfile;
-    outfile.open(fname);
     for(int nn = 0; nn < ns.size();++nn)
     {
     N=ns[nn];
@@ -208,18 +206,23 @@ int main(int argc, char*argv[])
     cout << endl;
     delGPUTiming.print();
     delGPUtotalTiming.print();
+    double ratio = 0;
     if(programSwitch==0)
         {
+        ratio = cgalTiming.timeTaken*delGPUTiming.functionCalls / (cgalTiming.functionCalls * delGPUTiming.timeTaken);
         cgalTiming.print();
         cout <<endl;
-        cout <<endl << "ratio = " << cgalTiming.timeTaken*delGPUTiming.functionCalls / (cgalTiming.functionCalls * delGPUTiming.timeTaken) << endl;
+        cout <<endl << "ratio = " << ratio << endl;
         }
 
+    ofstream outfile;
+    outfile.open(fname, std::ofstream::out | std::ofstream::app);
     outfile << N << "\t" 
                 << delGPUTiming.timeTaken/delGPUTiming.functionCalls << "\t"
-                << delGPUtotalTiming.timeTaken/delGPUtotalTiming.functionCalls << "\n";
-    }
+                << delGPUtotalTiming.timeTaken/delGPUtotalTiming.functionCalls << "\t"
+                << ratio << "\n";
     outfile.close();
+    }
 
 //The end of the tclap try
 //

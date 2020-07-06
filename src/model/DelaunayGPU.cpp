@@ -286,12 +286,7 @@ bool DelaunayGPU::get_neighbors(GPUArray<double2> &points, GPUArray<int> &GPUTri
     {
     bool recomputeNeighbors = false;
     int postCallMaxOneRingSize;
-    int currentMaxOneRingSize;
-        {//check initial maximum ring_size allocated
-        ArrayHandle<int> h_ms(maxOneRingSize, access_location::host,access_mode::read);
-        currentMaxOneRingSize = h_ms.data[0];
-        }
-
+    int currentMaxOneRingSize = MaxSize;
         {
         ArrayHandle<double2> d_pt(points,access_location::device,access_mode::read);
         ArrayHandle<unsigned int> d_cell_sizes(cList.cell_sizes,access_location::device,access_mode::read);

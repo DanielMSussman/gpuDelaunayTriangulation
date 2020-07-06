@@ -391,6 +391,7 @@ __global__ void gpu_voronoi_calc_global_kernel(const double2* __restrict__ d_pt,
 /*!
 device function that goes from a candidate 1-ring to an actual 1-ring
 */
+template<int N>
 __device__ void get_oneRing_function(int kidx,
                 const double2* __restrict__ d_pt,
                 const unsigned int* __restrict__ d_cell_sizes,
@@ -407,11 +408,13 @@ __device__ void get_oneRing_function(int kidx,
                 periodicBoundaries &Box,
                 Index2D &ci,
                 Index2D &cli,
-                Index2D &GPU_idx
+                Index2D &GPU_idx,
+                int const currentMaxNeighbors,
+                int *maximumNeighborNumber
                 )
     {
     //I will reuse most variables
-    int Hv[32];//={-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+    int Hv[N];//={-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
     double2 disp, pt1, pt2, v;
     double rr, xx, yy;
     unsigned int ii, numberInCell, newidx, iii, aa, removed;
@@ -606,6 +609,12 @@ __device__ void get_oneRing_function(int kidx,
                     if(removed==1)
                         {
                         poly_size++;
+                        if(poly_size > currentMaxNeighbors)
+                            {
+                            atomicMax(&maximumNeighborNumber[0],poly_size);
+                            //printf("excess (%i,%i,%i)\n",poly_size,currentMaxNeighbors,maximumNeighborNumber[0]);
+                            return;
+                            }
                         for(pp=poly_size-2; pp>j; pp--)
                             {
                             Q[GPU_idx(pp+1,kidx)]=Q[GPU_idx(pp,kidx)];
@@ -669,7 +678,9 @@ __global__ void gpu_get_neighbors_kernel(const double2* __restrict__ d_pt,
                 Index2D cli,
                 const int* __restrict__ d_fixlist,
                 int Nf,
-                Index2D GPU_idx
+                Index2D GPU_idx,
+                int *maximumNeighborNum,
+                int currentMaxNeighborNum
                 )
     {
 
@@ -679,11 +690,19 @@ __global__ void gpu_get_neighbors_kernel(const double2* __restrict__ d_pt,
     unsigned int kidx=d_fixlist[tidx];
     if (kidx >= Ncells)return;
 
-    get_oneRing_function(kidx,
-                d_pt,d_cell_sizes,d_cell_idx,P_idx,
-                P,Q,Q_rad,
-                d_neighnum, Ncells,xsize,ysize,
-                boxsize,Box,ci,cli,GPU_idx);
+    if(currentMaxNeighborNum < 12)
+        get_oneRing_function<12>(kidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+    else if (currentMaxNeighborNum < 18) 
+        get_oneRing_function<18>(kidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+    else if (currentMaxNeighborNum < 24) 
+        get_oneRing_function<24>(kidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+    else if (currentMaxNeighborNum < 32) 
+        get_oneRing_function<32>(kidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+    else if (currentMaxNeighborNum < 64) 
+        get_oneRing_function<64>(kidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+    else
+        get_oneRing_function<128>(kidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+
     return;
     }//end function
 
@@ -703,7 +722,9 @@ __global__ void gpu_get_neighbors_global_kernel(const double2* __restrict__ d_pt
                 periodicBoundaries Box,
                 Index2D ci,
                 Index2D cli,
-                Index2D GPU_idx
+                Index2D GPU_idx,
+                int *maximumNeighborNum,
+                int currentMaxNeighborNum
                 )
     {
 
@@ -711,11 +732,19 @@ __global__ void gpu_get_neighbors_global_kernel(const double2* __restrict__ d_pt
     unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
     if (tidx >= Ncells)return;
 
-    get_oneRing_function(tidx,
-                d_pt,d_cell_sizes,d_cell_idx,P_idx,
-                P,Q,Q_rad,
-                d_neighnum, Ncells,xsize,ysize,
-                boxsize,Box,ci,cli,GPU_idx);
+    if(currentMaxNeighborNum < 12)
+        get_oneRing_function<12>(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+    else if (currentMaxNeighborNum < 18) 
+        get_oneRing_function<18>(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+    else if (currentMaxNeighborNum < 24) 
+        get_oneRing_function<24>(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+    else if (currentMaxNeighborNum < 32) 
+        get_oneRing_function<32>(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+    else if (currentMaxNeighborNum < 64) 
+        get_oneRing_function<64>(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+    else
+        get_oneRing_function<128>(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+        
     return;
     }//end function
 
@@ -794,6 +823,7 @@ bool gpu_voronoi_calc(double2* d_pt,
                         );
 
         HANDLE_ERROR(cudaGetLastError());
+//cudaDeviceSynchronize();
         return cudaSuccess;
 };
 
@@ -815,6 +845,8 @@ bool gpu_get_neighbors(double2* d_pt, //the point set
                 int* d_fixlist,
                 int Nf,
                 Index2D GPU_idx,
+                int *maximumNeighborNum,
+                int currentMaxNeighborNum,
                 bool globalRoutine
                 )
 {
@@ -839,7 +871,9 @@ bool gpu_get_neighbors(double2* d_pt, //the point set
                       Box,
                       ci,
                       cli,
-                      GPU_idx
+                      GPU_idx,
+                      maximumNeighborNum,
+                      currentMaxNeighborNum
                       );
     else
         gpu_get_neighbors_kernel<<<nblocks,block_size>>>(
@@ -860,11 +894,14 @@ bool gpu_get_neighbors(double2* d_pt, //the point set
                       cli,
                       d_fixlist,
                       Nf,
-                      GPU_idx
+                      GPU_idx,
+                      maximumNeighborNum,
+                      currentMaxNeighborNum
                       );
 
 
     HANDLE_ERROR(cudaGetLastError());
+//cudaDeviceSynchronize();
     return cudaSuccess;
     };
 
@@ -887,6 +924,7 @@ bool gpu_build_repair(int* d_repair,
                     );
 
     HANDLE_ERROR(cudaGetLastError());
+//cudaDeviceSynchronize();
     return cudaSuccess;
     };
 
@@ -926,6 +964,7 @@ bool gpu_test_circumcenters(int *d_repair,
                             );
 
     HANDLE_ERROR(cudaGetLastError());
+//cudaDeviceSynchronize();
     return cudaSuccess;
     };
 

@@ -7,7 +7,7 @@
 #include "DelaunayCGAL.h"
 #include "DelaunayGPU.h"
 #include "periodicBoundaries.h"
-#include "profiler.h"
+#include "multiProfiler.h"
 #include "indexer.h"
 #include "cuda_profiler_api.h"
 
@@ -85,7 +85,7 @@ int main(int argc, char*argv[])
     ValueArg<int> gpuSwitchArg("g","USEGPU","an integer controlling which gpu to use... g < 0 uses the cpu",false,-1,"int",cmd);
     ValueArg<int> nSwitchArg("n","Number","number of particles in the simulation",false,100,"int",cmd);
     ValueArg<int> maxIterationsSwitchArg("i","iterations","number of timestep iterations",false,1,"int",cmd);
-    ValueArg<int> maxNeighSwitchArg("m","maxNeighsDefault","default maximum neighbor number for gpu triangulation routine",false,32,"int",cmd);
+    ValueArg<int> maxNeighSwitchArg("m","maxNeighsDefault","default maximum neighbor number for gpu triangulation routine",false,16,"int",cmd);
     ValueArg<int> fileIdxSwitch("f","file","file Index",false,-1,"int",cmd);
 
     //parse the arguments
@@ -103,13 +103,14 @@ int main(int argc, char*argv[])
         GPU = chooseGPU(gpuSwitch);
 
     bool reproducible = true;
+
+    multiProfiler mProf;
+
+    mProf.start("noise");
     noiseSource noise(reproducible);
     noise.initialize(N);
     noise.initializeGPURNGs();
-
-    profiler delGPUtotalTiming("DelGPUtotal");
-    profiler delGPUTiming("DelGPU");
-    profiler cgalTiming("CGAL");
+    mProf.end("noise");
 
     vector<double2> initialPositions(N);
     double L = sqrt(N);
@@ -135,13 +136,15 @@ int main(int argc, char*argv[])
                 {
                 pts[ii]=make_pair(Point(gps.data[ii].x,gps.data[ii].y),ii);
                 }
-            cgalTiming.start();
+            mProf.start("CGAL triangulation");
             cgalTriangulation.PeriodicTriangulation(pts,L,0,0,L);
-            cgalTiming.end();
+            mProf.end("CGAL triangulation");
+            /*
             maxNeighs=0;
             for (int ii = 0; ii < cgalTriangulation.allneighs.size();++ii)
                 if(cgalTriangulation.allneighs[ii].size() > maxNeighs)
                     maxNeighs = cgalTriangulation.allneighs[ii].size();
+            */
             }//end array handle scope
             {
             ArrayHandle<double2> gps(gpuPts,access_location::device,access_mode::read);
@@ -149,9 +152,9 @@ int main(int argc, char*argv[])
 
 
         double cellSize=1.0;
-        delGPUtotalTiming.start();//include initialization and data transfer times
-        DelaunayGPU delGPU(N, maxNeighs+2, cellSize, domain);
-        GPUArray<int> gpuTriangulation((unsigned int) (maxNeighs+2)*N);
+        mProf.start("delGPU total timing");
+        DelaunayGPU delGPU(N, maxNeighs, cellSize, domain);
+        GPUArray<int> gpuTriangulation((unsigned int) (maxNeighs)*N);
         GPUArray<int> cellNeighborNumber((unsigned int) N);
         {
         ArrayHandle<double2> gps(gpuPts,access_location::device,access_mode::read);
@@ -159,29 +162,27 @@ int main(int argc, char*argv[])
         ArrayHandle<int> cnn(cellNeighborNumber,access_location::device,access_mode::read);
         }
 
-        delGPUTiming.start();//profile just the triangulation routine
+        mProf.start("delGPU triangulation");
         cudaProfilerStart();
         delGPU.GPU_GlobalDelTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
         cudaProfilerStop();
-        delGPUTiming.end();
-        delGPUtotalTiming.end();
+        mProf.end("delGPU triangulation");
+        mProf.end("delGPU total timing");
         if(programSwitch ==0)
             {
             cout << "testing quality of triangulation..." << endl;
+            mProf.start("triangulation comparison");
             compareTriangulation(cgalTriangulation.allneighs, gpuTriangulation,cellNeighborNumber);
+            mProf.end("triangulation comparison");
             cout << "... testing done!" << endl;
             };
 
+    cout << endl;
+    //delGPU.prof.print(); //only gives relative timings if cudaDevSynch is used... only for testing on WSL where profiling is harder
     }
     cout << endl;
-    delGPUTiming.print();
-    delGPUtotalTiming.print();
-    if(programSwitch==0)
-        {
-        cgalTiming.print();
-        cout <<endl;
-        cout <<endl << "ratio = " << cgalTiming.timeTaken*delGPUTiming.functionCalls / (cgalTiming.functionCalls * delGPUTiming.timeTaken) << endl;
-        }
+    mProf.print();
+
 
 //The end of the tclap try
 //

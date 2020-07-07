@@ -453,10 +453,14 @@ __device__ void get_oneRing_function(int kidx,
 
         //This ordering of how the cells are checked is clearly inefficient -- perhaps replace it by a biased
         //ordereding depending on where the circumcenter is relative to the target point
-        for (cc = -cell_rad_in; cc <= cell_rad_in; ++cc)//check neigh i
+        for (int cri = 0; cri <= cell_rad_in; ++cri)
+        {
+        for (cc = -cri; cc <= cri; ++cc)//check neigh i
             {
-            for (dd = -cell_rad_in; dd <=cell_rad_in; ++dd)//check neigh q
+            for (dd = -cri; dd <=cri; ++dd)//check neigh q
                 {
+                if(!(cc==-cri || cc == cri || dd == -cri || dd == cri))
+                    continue;
                 cx = (cell_x+dd)%xsize;
                 if (cx <0)
                     cx+=xsize;
@@ -641,6 +645,7 @@ __device__ void get_oneRing_function(int kidx,
             if(flag==true)
                 break;
             }//end cell neighbor check, i
+        }
         if(flag==true)
             {
             jj--;

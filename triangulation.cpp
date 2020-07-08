@@ -121,7 +121,7 @@ int main(int argc, char*argv[])
 
     //for timing tests, iteratate a random triangulation maximumIterations number of times
     cout << "iterating over " << maximumIterations << " random triangulations of " << N << " points randomly (uniformly) distributed in a square domain"  << endl;
-    for (int iteration = 0; iteration<maximumIterations; ++iteration)
+    for (int iteration = 0; iteration<=maximumIterations; ++iteration)
         {
 
         PeriodicBoxPtr domain = make_shared<periodicBoundaries>(L,L);
@@ -139,9 +139,11 @@ int main(int argc, char*argv[])
                 {
                 pts[ii]=make_pair(Point(gps.data[ii].x,gps.data[ii].y),ii);
                 }
-            mProf.start("CGAL triangulation");
+            if(iteration !=0)
+                mProf.start("CGAL triangulation");
             cgalTriangulation.PeriodicTriangulation(pts,L,0,0,L);
-            mProf.end("CGAL triangulation");
+            if(iteration !=0)
+                mProf.end("CGAL triangulation");
             /*
             maxNeighs=0;
             for (int ii = 0; ii < cgalTriangulation.allneighs.size();++ii)
@@ -155,7 +157,8 @@ int main(int argc, char*argv[])
 
 
         double cellSize=1.0;
-        mProf.start("delGPU total timing");
+        if(iteration !=0)
+            mProf.start("delGPU total timing");
         DelaunayGPU delGPU(N, maxNeighs, cellSize, domain);
 
         /*
@@ -174,12 +177,18 @@ int main(int argc, char*argv[])
         ArrayHandle<int> cnn(cellNeighborNumber,access_location::device,access_mode::read);
         }
 
-        mProf.start("delGPU triangulation");
-        cudaProfilerStart();
+        if(iteration !=0)
+            {
+            mProf.start("delGPU triangulation");
+            cudaProfilerStart();
+            }
         delGPU.GPU_GlobalDelTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
-        cudaProfilerStop();
-        mProf.end("delGPU triangulation");
-        mProf.end("delGPU total timing");
+        if(iteration !=0)
+            {
+            cudaProfilerStop();
+            mProf.end("delGPU triangulation");
+            mProf.end("delGPU total timing");
+            }
         if(programSwitch ==0)
             {
             cout << "testing quality of triangulation..." << endl;
@@ -189,7 +198,6 @@ int main(int argc, char*argv[])
             cout << "... testing done!" << endl;
             };
 
-    cout << endl;
     //delGPU.prof.print(); //only gives relative timings if cudaDevSynch is used... only for testing on WSL where profiling is harder
     }
     cout << endl;

@@ -14,40 +14,7 @@
     @{
 */
 
-//!distance from origin to line segment -- assumes all minimum image conventions have been taken care of
-__device__ inline double pointLineSegmentDistance(const double2 start, const double2 end)
-    {
-    double2 disp = end-start;
-    double norm = dot(disp,disp);
-    double u = (-start.x*disp.x-start.y*disp.y)/norm;
-    if(u <0)
-        return sqrt(dot(start,start));
-    if(u > 1)
-        return sqrt(dot(end,end));
-    disp = make_double2(start.x+u*disp.x,start.y+u*disp.y);
-    return sqrt(dot(disp,disp));
-    }
-
 /*!
-    What is the minimum distance between a point and a cell bin?
-*/
-__device__ inline void getMinimumDistance(const double2 pt, const int cx, const int cy, const double cellSize, periodicBoundaries &box, double &answer)
-    {
-    double2 c1,c2,c3,c4,p1,p2,p3,p4;
-    c1.x = cx*cellSize;c1.y=cy*cellSize;
-    c2.x = (cx+1)*cellSize;c2.y=cy*cellSize;
-    c3.x = (cx+1)*cellSize;c3.y=(cy+1)*cellSize;
-    c4.x = cx*cellSize;c4.y=(cy+1)*cellSize;
-    box.minDist(pt,c1,p1);
-    box.minDist(pt,c2,p2);
-    box.minDist(pt,c3,p3);
-    box.minDist(pt,c4,p4);
-    answer = min(pointLineSegmentDistance(p1,p2),pointLineSegmentDistance(p2,p3));
-    answer = min(answer,pointLineSegmentDistance(p3,p4));
-    answer = min(answer,pointLineSegmentDistance(p4,p1));
-    }
-
-/*!+*9
   Independently check every triangle in the Delaunay mesh to see if the cirumcircle defined by the
   vertices of that triangle is empty. Use the cell list to ensure that only checks of nearby
   particles are required.
@@ -414,7 +381,7 @@ __device__ void get_oneRing_function(int kidx,
                 )
     {
     //I will reuse most variables
-    int Hv[N];//={-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+    int Hv[N];
     double2 disp, pt1, pt2, v;
     double rr, xx, yy;
     unsigned int ii, numberInCell, newidx, iii, aa, removed;
@@ -426,7 +393,6 @@ __device__ void get_oneRing_function(int kidx,
 
     v = d_pt[kidx];
     bool flag=false;
-    bool again=false;
 
 
 //int counter= 0 ;
@@ -438,9 +404,11 @@ __device__ void get_oneRing_function(int kidx,
     for(jj=0; jj<poly_size; jj++)
         {
 //counter+=1;
-        pt1=v+Q[GPU_idx(jj,kidx)]; //absolute position (within box) of circumcenter
+        ii=GPU_idx(jj, kidx);
+        iii=GPU_idx((jj+1)%poly_size, kidx);
+        pt1=v+Q[ii]; //absolute position (within box) of circumcenter
         Box.putInBoxReal(pt1);
-        double currentRadius = Q_rad[GPU_idx(jj,kidx)];
+        double currentRadius = Q_rad[ii];
         cc = max(0,min(xsize-1,(int)floor(pt1.x/boxsize)));
         dd = max(0,min(ysize-1,(int)floor(pt1.y/boxsize)));
         q = ci(cc,dd);
@@ -468,19 +436,6 @@ __device__ void get_oneRing_function(int kidx,
                 if (cy <0)
                     cy+=ysize;
 
-                /*
-                   double cellDistance=0;
-                   getMinimumDistance(pt1,cx,cy,boxsize,Box,cellDistance);
-
-                   if(cellDistance < currentRadius)
-                   {
-                   printf("test %f\t %f\n",currentRadius,cellDistance);
-
-                   continue;
-                   }
-                 */
-
-
                 //check if there are any points in cellsns, if so do change, otherwise go for next bin
                 bin = ci(cx,cy);
                 numberInCell = d_cell_sizes[bin];
@@ -493,12 +448,11 @@ __device__ void get_oneRing_function(int kidx,
 //blah +=1;
                     newidx = d_cell_idx[cli(aa,bin)];
                     //6-Compute the half-plane Hv defined by the bissector of v and c, containing c
-                    ii=GPU_idx(jj, kidx);
-                    iii=GPU_idx((jj+1)%poly_size, kidx);
                     if(newidx==P_idx[ii] || newidx==P_idx[iii] || newidx==kidx)continue;
 //blah2+=1;
                     //how far is the point from the circumcircle's center?
-                    rr=Q_rad[ii]*Q_rad[ii];
+                    //rr=Q_rad[ii]*Q_rad[ii];
+                    rr=currentRadius*currentRadius;
                     Box.minDist(d_pt[newidx], v, disp); //disp = vector between new point and the point we're constructing the one ring of
                     Box.minDist(disp,Q[ii],pt1); // pt1 gets overwritten by vector between new point and Pi's circumcenter
                     if(pt1.x*pt1.x+pt1.y*pt1.y>rr)continue;
@@ -533,11 +487,13 @@ __device__ void get_oneRing_function(int kidx,
                     removed=0;
                     save_j=-1;
                     //see which voronoi temp points fall within the same bisector as cell v
-                    for(pp=0; pp<poly_size; pp++)
+                    //for(pp=0; pp<poly_size; pp++)
+                      //  {
+                        //q=jj-pp;
+                    for(q = poly_size-1;q >=0; q--)
                         {
-                        q=jj-pp;
-                        if(q<0)
-                            q+=poly_size;
+                        //if(q<0)
+                        //    q+=poly_size;
 
                         if((disp.x/2-xx)*(disp.y/2-Q[GPU_idx(q,kidx)].y)-(disp.y/2-yy)*(disp.x/2-Q[GPU_idx(q, kidx)].x)>0)
                             cy=0;
@@ -597,15 +553,6 @@ __device__ void get_oneRing_function(int kidx,
                         }
                     if(removed==0)
                         continue;
-                    else if(removed==1 && poly_size==32)
-                        {
-                        again=true;
-                        continue;
-                        }
-                    else if(again==true && poly_size<32)
-                        {
-                        again=false;
-                        }
 
                     //Introduce new (if it exists) delaunay neighbor and new voronoi points
                     Circumcircle(P[GPU_idx(j,kidx)], disp, pt1, xx);
@@ -650,12 +597,6 @@ __device__ void get_oneRing_function(int kidx,
             {
             jj--;
             flag=false;
-            }
-        if(again==true)
-            {
-            jj--;
-            again=false;
-            printf("\nAGAIN: %d, %d\n",kidx,jj);
             }
         }//end iterative loop over all edges of the 1-ring
 

@@ -146,10 +146,12 @@ __device__ void virtual_voronoi_calc_function(        int kidx,
     int m, n;
     double2 pt1;
     double rr;
-    double Lmax=(xsize*boxsize)/2; 
-
-    poly_size=4;
+    double Lmax=(xsize*boxsize)*0.5; 
     double LL=Lmax/1.414213562373095-EPSILON;
+
+    /*
+    poly_size=4;
+    int Hv[4];//={-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
     P[GPU_idx(0, kidx)].x=LL;
     P[GPU_idx(0, kidx)].y=LL;
     P[GPU_idx(1, kidx)].x=-LL;
@@ -158,6 +160,36 @@ __device__ void virtual_voronoi_calc_function(        int kidx,
     P[GPU_idx(2, kidx)].y=-LL;
     P[GPU_idx(3, kidx)].x=LL;
     P[GPU_idx(3, kidx)].y=-LL;
+    */
+    poly_size=5;
+    int Hv[5];//={-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+    P[GPU_idx(0, kidx)].x=0.62*LL;
+    P[GPU_idx(0, kidx)].y=1.9*LL;
+    P[GPU_idx(1, kidx)].x=-1.62*LL;
+    P[GPU_idx(1, kidx)].y=1.176*LL;
+    P[GPU_idx(2, kidx)].x=-1.62*LL;
+    P[GPU_idx(2, kidx)].y=-1.176*LL;
+    P[GPU_idx(3, kidx)].x=.62*LL;
+    P[GPU_idx(3, kidx)].y=-1.9*LL;
+    P[GPU_idx(4, kidx)].x=2.0*LL;
+    P[GPU_idx(4, kidx)].y=0.;
+    /*
+    poly_size=6;
+    int Hv[6];//={-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+    P[GPU_idx(0, kidx)].x=2.*LL;
+    P[GPU_idx(0, kidx)].y=0.;
+    P[GPU_idx(1, kidx)].x=LL;
+    P[GPU_idx(1, kidx)].y=1.7*LL;
+    P[GPU_idx(2, kidx)].x=-LL;
+    P[GPU_idx(2, kidx)].y=1.7*LL;
+    P[GPU_idx(3, kidx)].x=-2.0*LL;
+    P[GPU_idx(3, kidx)].y=0.;
+    P[GPU_idx(4, kidx)].x=-LL;
+    P[GPU_idx(4, kidx)].y=-1.7*LL;
+    P[GPU_idx(5, kidx)].x=LL;
+    P[GPU_idx(5, kidx)].y=-1.7*LL;
+    */
+
     for(m=0; m<poly_size; m++)
         {
         P_idx[GPU_idx(m, kidx)]=-1;
@@ -173,13 +205,12 @@ int blah2 = 0;
 int blah3=0;
 int maxCellsChecked=0;
 
-    int Hv[4];//={-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
     double2 disp, pt2, v;
     double xx, yy;
     unsigned int ii, numberInCell, newidx, iii, aa, removed;
     int q, pp, w, j, jj, cx, cy, save_j, cc, dd, cell_rad_in, cell_rad, bin, cell_x, cell_y, save;
 
-int spotcheck=0;
+int spotcheck=18;
 if(kidx==spotcheck) printf("VP initial poly_size = %i\n",poly_size);
 
     v = d_pt[kidx];
@@ -217,19 +248,6 @@ counter+=1;
                 cy = (cell_y+cc)%ysize;
                 if (cy <0)
                     cy+=ysize;
-
-                /*
-                   double cellDistance=0;
-                   getMinimumDistance(pt1,cx,cy,boxsize,Box,cellDistance);
-
-                   if(cellDistance < currentRadius)
-                   {
-                   printf("test %f\t %f\n",currentRadius,cellDistance);
-
-                   continue;
-                   }
-                 */
-
 
                 //check if there are any points in cellsns, if so do change, otherwise go for next bin
                 bin = ci(cx,cy);
@@ -673,8 +691,8 @@ __device__ void get_oneRing_function(int kidx,
     int q, pp, m, w, j, jj, cx, cy, save_j, cc, dd, cell_rad_in, bin, cell_x, cell_y, save;
     unsigned int poly_size=d_neighnum[kidx];
 
-//int spotcheck=18;
-//if(kidx==spotcheck) printf("initial poly_size = %i\n",poly_size);
+int spotcheck=18;
+if(kidx==spotcheck) printf("initial poly_size = %i\n",poly_size);
 
     v = d_pt[kidx];
     bool flag=false;
@@ -886,8 +904,8 @@ blah3 +=1;
         }//end iterative loop over all edges of the 1-ring
 
     d_neighnum[kidx]=poly_size;
-//    if(kidx==spotcheck)
-//        printf(" points checked for kidx %i = %i, ignore self points = %i, ignore points outside circumcircles = %i, total neighs = %i \n",kidx,blah,blah2,blah3,poly_size);
+    if(kidx==spotcheck)
+        printf(" points checked for kidx %i = %i, ignore self points = %i, ignore points outside circumcircles = %i, total neighs = %i \n",kidx,blah,blah2,blah3,poly_size);
     }
 
 //This kernel updates the initial polygon into the real delaunay one.

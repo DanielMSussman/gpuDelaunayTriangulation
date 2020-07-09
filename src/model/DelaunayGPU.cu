@@ -149,7 +149,6 @@ __device__ void virtual_voronoi_calc_function(        int kidx,
     double Lmax=(xsize*boxsize)*0.5; 
     double LL=Lmax/1.414213562373095-EPSILON;
 
-    /*
     poly_size=4;
     int Hv[4];//={-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
     P[GPU_idx(0, kidx)].x=LL;
@@ -160,7 +159,7 @@ __device__ void virtual_voronoi_calc_function(        int kidx,
     P[GPU_idx(2, kidx)].y=-LL;
     P[GPU_idx(3, kidx)].x=LL;
     P[GPU_idx(3, kidx)].y=-LL;
-    */
+    /*
     poly_size=5;
     int Hv[5];//={-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
     P[GPU_idx(0, kidx)].x=0.62*LL;
@@ -173,6 +172,7 @@ __device__ void virtual_voronoi_calc_function(        int kidx,
     P[GPU_idx(3, kidx)].y=-1.9*LL;
     P[GPU_idx(4, kidx)].x=2.0*LL;
     P[GPU_idx(4, kidx)].y=0.;
+    */
     /*
     poly_size=6;
     int Hv[6];//={-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
@@ -211,7 +211,7 @@ int maxCellsChecked=0;
     int q, pp, w, j, jj, cx, cy, save_j, cc, dd, cell_rad_in, cell_rad, bin, cell_x, cell_y, save;
 
 int spotcheck=18;
-if(kidx==spotcheck) printf("VP initial poly_size = %i\n",poly_size);
+//if(kidx==spotcheck) printf("VP initial poly_size = %i\n",poly_size);
 
     v = d_pt[kidx];
     bool flag=false;
@@ -409,7 +409,7 @@ counter+=1;
         }//end iterative loop over all edges of the 1-ring
 
     d_neighnum[kidx]=poly_size;
-    if(kidx==spotcheck) printf("VP points checked for kidx %i = %i, ignore self points = %i, ignore points outside circumcircles = %i, total neighs = %i \n",kidx,blah,blah2,blah3,poly_size);
+//    if(kidx==spotcheck) printf("VP points checked for kidx %i = %i, ignore self points = %i, ignore points outside circumcircles = %i, total neighs = %i \n",kidx,blah,blah2,blah3,poly_size);
 
 /*if(kidx==0){
 printf("{ ");
@@ -692,7 +692,7 @@ __device__ void get_oneRing_function(int kidx,
     unsigned int poly_size=d_neighnum[kidx];
 
 int spotcheck=18;
-if(kidx==spotcheck) printf("initial poly_size = %i\n",poly_size);
+//if(kidx==spotcheck) printf("initial poly_size = %i\n",poly_size);
 
     v = d_pt[kidx];
     bool flag=false;
@@ -904,8 +904,7 @@ blah3 +=1;
         }//end iterative loop over all edges of the 1-ring
 
     d_neighnum[kidx]=poly_size;
-    if(kidx==spotcheck)
-        printf(" points checked for kidx %i = %i, ignore self points = %i, ignore points outside circumcircles = %i, total neighs = %i \n",kidx,blah,blah2,blah3,poly_size);
+//    if(kidx==spotcheck) printf(" points checked for kidx %i = %i, ignore self points = %i, ignore points outside circumcircles = %i, total neighs = %i \n",kidx,blah,blah2,blah3,poly_size);
     }
 
 //This kernel updates the initial polygon into the real delaunay one.

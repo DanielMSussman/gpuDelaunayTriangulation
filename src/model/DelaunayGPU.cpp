@@ -128,15 +128,24 @@ void DelaunayGPU::updateList(GPUArray<double2> &points)
 //call the triangulation routines on a subset of the total number of points
 void DelaunayGPU::locallyRepairDelaunayTriangulation(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum,GPUArray<int> &repairList,int numberToRepair)
     {
-    setRepair(repairList);
-    size_fixlist = numberToRepair;
+    //setRepair(repairList);
+    //size_fixlist = numberToRepair;
 
     int currentN = points.getNumElements();
+    if(cListUpdated==false)
+		{
+        prof.start("cellList");
+		cList.computeGPU(points);
+        prof.end("cellList");
+		cListUpdated=true;
+		}
     bool recompute = true;
     while (recompute)
         {
-        Voronoi_Calc(points, GPUTriangulation, cellNeighborNum);
-        recompute =get_neighbors(points, GPUTriangulation, cellNeighborNum);
+        //Voronoi_Calc(points, GPUTriangulation, cellNeighborNum);
+        //recompute =get_neighbors(points, GPUTriangulation, cellNeighborNum);
+        voronoiCalcRepairList(points, GPUTriangulation, cellNeighborNum,repairList);
+        recompute = computeTriangulationRepairList(points, GPUTriangulation, cellNeighborNum,repairList);
         if(recompute)
             {
             GPUTriangulation.resize(MaxSize*currentN);
@@ -162,11 +171,13 @@ void DelaunayGPU::GPU_LocalDelTriangulation(GPUArray<double2> &points, GPUArray<
 		printf("GPU DT Local: No circumcircles initialized\n");
                 throw std::exception();
 	}
-        if(cListUpdated==false)
-	{
-		printf("GPU DT Local: Cell list not updated\n");
-                throw std::exception();
-	}
+    if(cListUpdated==false)
+		{
+        prof.start("cellList");
+		cList.computeGPU(points);
+        prof.end("cellList");
+		cListUpdated=true;
+		}
 	if(points.getNumElements()!=Ncells)
 	{
 		printf("GPU DT Local: Bug in GPU DT\n");
@@ -261,6 +272,40 @@ void DelaunayGPU::build_repair()
                     );
 }
 
+void DelaunayGPU::voronoiCalcRepairList(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum,GPUArray<int> &repairList)
+    {
+    ArrayHandle<double2> d_pt(points,access_location::device,access_mode::read);
+    ArrayHandle<unsigned int> d_cell_sizes(cList.cell_sizes,access_location::device,access_mode::read);
+    ArrayHandle<int> d_cell_idx(cList.idxs,access_location::device,access_mode::read);
+
+    ArrayHandle<int> d_P_idx(GPUTriangulation,access_location::device,access_mode::readwrite);
+    ArrayHandle<int> d_neighnum(cellNeighborNum,access_location::device,access_mode::readwrite);
+    ArrayHandle<int> d_repair(repairList,access_location::device,access_mode::read);
+
+    ArrayHandle<double2> d_Q(GPUVoroCur,access_location::device,access_mode::readwrite);
+    ArrayHandle<double2> d_P(GPUDelNeighsPos,access_location::device,access_mode::readwrite);
+    ArrayHandle<double> d_Q_rad(GPUVoroCurRad,access_location::device,access_mode::readwrite);
+
+    gpu_voronoi_calc_no_sort(d_pt.data,
+                        d_cell_sizes.data,
+                        d_cell_idx.data,
+                        d_P_idx.data,
+                        d_P.data,
+                        d_Q.data,
+                        d_Q_rad.data,
+                        d_neighnum.data,
+                        Ncells,
+                        cList.getXsize(),
+                        cList.getYsize(),
+                        cList.getBoxsize(),
+                        *(Box),
+                        cList.cell_indexer,
+                        cList.cell_list_indexer,
+                        d_repair.data,
+                        GPU_idx
+                        );
+    };
+
 //One of the main functions called by the triangulation.
 //This creates a simple convex polygon around each point for triangulation.
 //Currently the polygon is created with only four points
@@ -339,6 +384,64 @@ void DelaunayGPU::Voronoi_Calc(GPUArray<double2> &points, GPUArray<int> &GPUTria
 
 
 
+    }
+
+bool DelaunayGPU::computeTriangulationRepairList(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum,GPUArray<int> &repairList)
+    {
+        bool recomputeNeighbors = false;
+        int postCallMaxOneRingSize;
+        int currentMaxOneRingSize = MaxSize;
+        {
+                ArrayHandle<double2> d_pt(points,access_location::device,access_mode::read);
+                ArrayHandle<unsigned int> d_cell_sizes(cList.cell_sizes,access_location::device,access_mode::read);
+                ArrayHandle<int> d_cell_idx(cList.idxs,access_location::device,access_mode::read);
+
+                ArrayHandle<int> d_P_idx(GPUTriangulation,access_location::device,access_mode::readwrite);
+                ArrayHandle<int> d_neighnum(cellNeighborNum,access_location::device,access_mode::readwrite);
+                ArrayHandle<int> d_repair(repairList,access_location::device,access_mode::read);
+
+                ArrayHandle<double2> d_Q(GPUVoroCur,access_location::device,access_mode::readwrite);
+                ArrayHandle<double2> d_P(GPUDelNeighsPos,access_location::device,access_mode::readwrite);
+                ArrayHandle<double> d_Q_rad(GPUVoroCurRad,access_location::device,access_mode::readwrite);
+                ArrayHandle<int> d_ms(maxOneRingSize, access_location::device,access_mode::readwrite);
+
+
+                gpu_get_neighbors_no_sort(d_pt.data,
+                                d_cell_sizes.data,
+                                d_cell_idx.data,
+                                d_P_idx.data,
+                                d_P.data,
+                                d_Q.data,
+                                d_Q_rad.data,
+                                d_neighnum.data,
+                                Ncells,
+                                cList.getXsize(),
+                                cList.getYsize(),
+                                cList.getBoxsize(),
+                                *(Box),
+                                cList.cell_indexer,
+                                cList.cell_list_indexer,
+                                d_repair.data,
+                                GPU_idx,
+                                d_ms.data,
+                                currentMaxOneRingSize
+                                    );
+        }
+        if(safetyMode)
+        {
+                {//check initial maximum ring_size allocated
+                        ArrayHandle<int> h_ms(maxOneRingSize, access_location::host,access_mode::read);
+                        postCallMaxOneRingSize = h_ms.data[0];
+                }
+                //printf("initial and post %i %i\n", currentMaxOneRingSize,postCallMaxOneRingSize);
+                if(postCallMaxOneRingSize > currentMaxOneRingSize)
+                {
+                        recomputeNeighbors = true;
+                        printf("resizing potential neighbors from %i to %i and re-computing...\n",currentMaxOneRingSize,postCallMaxOneRingSize);
+                        resize(postCallMaxOneRingSize);
+                }
+        };
+        return recomputeNeighbors;
     }
 
 //The final main function of the triangulation.

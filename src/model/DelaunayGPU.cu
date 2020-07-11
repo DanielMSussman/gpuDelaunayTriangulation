@@ -589,6 +589,36 @@ __device__ void voronoi_calc_function(        int kidx,
 
     }
 
+//assumes "fixlist" has the structure fixlist[ii]=-1 --> dont triangulate
+__global__ void gpu_voronoi_calc_no_sort_kernel(const double2* __restrict__ d_pt,
+                                              const unsigned int* __restrict__ d_cell_sizes,
+                                              const int* __restrict__ d_cell_idx,
+                                              int* __restrict__ P_idx,
+                                              double2* __restrict__ P,
+                                              double2* __restrict__ Q,
+                                              double* __restrict__ Q_rad,
+                                              int* __restrict__ d_neighnum,
+                                              int Ncells,
+                                              int xsize,
+                                              int ysize,
+                                              double boxsize,
+                                              periodicBoundaries Box,
+                                              Index2D ci,
+                                              Index2D cli,
+                                              const int* __restrict__ d_fixlist,
+                                              Index2D GPU_idx
+                                              )
+    {
+    unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
+    if (tidx >= Ncells)return;
+    if(d_fixlist[tidx] >= 0)
+        virtual_voronoi_calc_function(tidx,d_pt,d_cell_sizes,d_cell_idx,
+                          P_idx, P, Q, Q_rad,
+                          d_neighnum,
+                          Ncells, xsize,ysize, boxsize,Box,
+                          ci,cli,GPU_idx);
+    return;
+    }
 /*
 GPU implementatio of the DT. It makes use of a locallity lema described in (doi: 10.1109/ISVD.2012.9). It will only make the repair of the topology in case it is necessary. Steps are detailed as in paper.
 */
@@ -945,6 +975,38 @@ __global__ void gpu_get_neighbors_kernel(const double2* __restrict__ d_pt,
     return;
     }//end function
 
+template<int N>
+__global__ void gpu_get_neighbors_no_sort_kernel(const double2* __restrict__ d_pt,
+                const unsigned int* __restrict__ d_cell_sizes,
+                const int* __restrict__ d_cell_idx,
+                int* __restrict__ P_idx,
+                double2* __restrict__ P,
+                double2* __restrict__ Q,
+                double* __restrict__ Q_rad,
+                int* __restrict__ d_neighnum,
+                int Ncells,
+                int xsize,
+                int ysize,
+                double boxsize,
+                periodicBoundaries Box,
+                Index2D ci,
+                Index2D cli,
+                const int* __restrict__ d_fixlist,
+                Index2D GPU_idx,
+                int *maximumNeighborNum,
+                int currentMaxNeighborNum
+                )
+    {
+
+
+    unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
+    if (tidx >= Ncells)return;
+    if(d_fixlist[tidx] >=0)
+        get_oneRing_function<N>(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+
+    return;
+    }//end function
+
 //!global get neighbors does not need a fixlist
 template<int N>
 __global__ void gpu_get_neighbors_global_kernel(const double2* __restrict__ d_pt,
@@ -984,6 +1046,52 @@ __global__ void gpu_get_neighbors_global_kernel(const double2* __restrict__ d_pt
 //////			Kernel Calls
 //////
 /////////////////////////////////////////////////////////////
+
+bool gpu_voronoi_calc_no_sort(double2* d_pt,
+                      unsigned int* d_cell_sizes,
+                      int* d_cell_idx,
+                      int* P_idx,
+                      double2* P,
+                      double2* Q,
+                      double* Q_rad,
+                      int* d_neighnum,
+                      int Ncells,
+                      int xsize,
+                      int ysize,
+                      double boxsize,
+                      periodicBoundaries Box,
+                      Index2D ci,
+                      Index2D cli,
+                      int* d_fixlist,
+                      Index2D GPU_idx
+                      )
+    {
+    unsigned int block_size = 128;
+    if (Ncells < 128) block_size = 32;
+    unsigned int nblocks  = Ncells/block_size + 1;
+    gpu_voronoi_calc_no_sort_kernel<<<nblocks,block_size>>>(
+                        d_pt,
+                        d_cell_sizes,
+                        d_cell_idx,
+                        P_idx,
+                        P,
+                        Q,
+                        Q_rad,
+                        d_neighnum,
+                        Ncells,
+                        xsize,
+                        ysize,
+                        boxsize,
+                        Box,
+                        ci,
+                        cli,
+                        d_fixlist,
+                        GPU_idx
+                        );
+    HANDLE_ERROR(cudaGetLastError());
+    //cudaDeviceSynchronize();
+    return cudaSuccess;
+    }
 
 bool gpu_voronoi_calc(double2* d_pt,
                 unsigned int* d_cell_sizes,
@@ -1055,6 +1163,61 @@ bool gpu_voronoi_calc(double2* d_pt,
 //cudaDeviceSynchronize();
         return cudaSuccess;
 };
+
+bool gpu_get_neighbors_no_sort(double2* d_pt, //the point set
+                unsigned int* d_cell_sizes,//points per bucket
+                int* d_cell_idx,//cellListIdxs
+                int* P_idx,//index of Del Neighbors
+                double2* P,//location del neighborPositions
+                double2* Q,//voronoi vertex positions
+                double* Q_rad,//radius? associated with voro vertex
+                int* d_neighnum,//number of del neighbors
+                int Ncells,
+                int xsize,
+                int ysize,
+                double boxsize,
+                periodicBoundaries Box,
+                Index2D ci,
+                Index2D cli,
+                int* d_fixlist,
+                Index2D GPU_idx,
+                int *maximumNeighborNum,
+                int currentMaxNeighborNum
+                )
+    {
+    unsigned int block_size = 128;
+    if (Ncells < 128) block_size = 32;
+    unsigned int nblocks  = Ncells/block_size + 1;
+
+
+        if(currentMaxNeighborNum < 16)
+            gpu_get_neighbors_no_sort_kernel<16><<<nblocks,block_size>>>(
+                      d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,Ncells,xsize,ysize,
+                      boxsize,Box,ci,cli,d_fixlist,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
+                      );
+        else if (currentMaxNeighborNum < 24)
+            gpu_get_neighbors_no_sort_kernel<24><<<nblocks,block_size>>>(
+                      d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,Ncells,xsize,ysize,
+                      boxsize,Box,ci,cli,d_fixlist,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
+                      );
+        else if (currentMaxNeighborNum < 32)
+            gpu_get_neighbors_no_sort_kernel<32><<<nblocks,block_size>>>(
+                      d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,Ncells,xsize,ysize,
+                      boxsize,Box,ci,cli,d_fixlist,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
+                      );
+        else if (currentMaxNeighborNum < 64)
+            gpu_get_neighbors_no_sort_kernel<64><<<nblocks,block_size>>>(
+                      d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,Ncells,xsize,ysize,
+                      boxsize,Box,ci,cli,d_fixlist,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
+                      );
+        else
+            UNWRITTENCODE("You have hit an unexpected limit") ;
+
+
+    HANDLE_ERROR(cudaGetLastError());
+//cudaDeviceSynchronize();
+    return cudaSuccess;
+    };
 
 bool gpu_get_neighbors(double2* d_pt, //the point set
                 unsigned int* d_cell_sizes,//points per bucket

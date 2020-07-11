@@ -70,6 +70,8 @@ class DelaunayGPU
         //!< A box to calculate relative distances in a periodic domain.
         PeriodicBoxPtr Box;
 
+        bool cListUpdated;
+
     private:
         //!Functions used by the GPU DT
         //!Creates the organized array of cells to triangulate
@@ -80,6 +82,10 @@ class DelaunayGPU
         void Voronoi_Calc();
         bool get_neighbors(GPUArray<double2> &points,GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum,bool callGlobalRoutine=false);
 
+        //!testing an alternate memory pattern for local repairs
+        void voronoiCalcRepairList(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum,GPUArray<int> &repairList);
+        //!same memory pattern, for getNeighbors
+        bool computeTriangulationRepairList(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum,GPUArray<int> &repairList);
         //!prep the cell list
         void initializeCellList();
 
@@ -119,6 +125,5 @@ class DelaunayGPU
         //!A cell list for speeding up the calculation of the candidate 1-ring
         cellListGPU cList;
         int cellsize;
-        bool cListUpdated;
     };
 #endif

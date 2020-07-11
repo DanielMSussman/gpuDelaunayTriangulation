@@ -39,22 +39,6 @@ bool gpu_build_repair( int *d_repair,
                    int *Nf
                    );
 
-//create initial polygon around cell i to start triangulation algorithm
-bool gpu_initial_poly(double2* d_pt,
-                             int* P_idx,
-                             double2* P,
-                             int* d_neighnum,
-                             int* c,
-                             int Ncells,
-                             periodicBoundaries Box,
-                             int* d_fixlist,
-                             int Nf,
-                             Index2D GPU_idx
-                             );
-
-//calculate voronoi points using previous polygon
-//this function is currently bg since we cannot guarantee 100% that the previous poly contains cell i
-//this should be a step that could b optimized
 bool gpu_voronoi_calc(double2* d_pt,
                       unsigned int* d_cell_sizes,
                       int* d_cell_idx,
@@ -74,6 +58,26 @@ bool gpu_voronoi_calc(double2* d_pt,
                       int Nf,
                       Index2D GPU_idx,
                       bool globalRoutine=false
+                      );
+
+//call the voronoi_calc kernels *only* on elements of the fixlist, but without any sorting
+bool gpu_voronoi_calc_no_sort(double2* d_pt,
+                      unsigned int* d_cell_sizes,
+                      int* d_cell_idx,
+                      int* P_idx,
+                      double2* P,
+                      double2* Q,
+                      double* Q_rad,
+                      int* d_neighnum,
+                      int Ncells,
+                      int xsize,
+                      int ysize,
+                      double boxsize,
+                      periodicBoundaries Box,
+                      Index2D ci,
+                      Index2D cli,
+                      int* d_fixlist,
+                      Index2D GPU_idx
                       );
 
 //the meat of the triangulation algorithm, calculates the actual del neighs of cell i
@@ -101,6 +105,26 @@ bool gpu_get_neighbors(double2* d_pt,
                       bool globalRoutine=false
                       );
 
+bool gpu_get_neighbors_no_sort(double2* d_pt,
+                      unsigned int* d_cell_sizes,
+                      int* d_cell_idx,
+                      int* P_idx,
+                      double2* P,
+                      double2* Q,
+                      double* Q_rad,
+                      int* d_neighnum,
+                      int Ncells,
+                      int xsize,
+                      int ysize,
+                      double boxsize,
+                      periodicBoundaries Box,
+                      Index2D ci,
+                      Index2D cli,
+                      int* d_fixlist,
+                      Index2D GPU_idx,
+                      int* maximumNeighborNum,
+                      int currentMaxNeighborNum
+                      );
 
 /** @} */ //end of group declaration
 

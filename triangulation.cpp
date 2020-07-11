@@ -214,33 +214,54 @@ else if (programSwitch == -1)
     for(int ii = 0; ii < N; ++ii)
         repairList[ii]=ii;
     int localNumber = floor(localFraction*N);
-    printf("randomly repairing %i points (out of %i) %i times\n",localNumber,N,maximumIterations);
     noise.fillArray(gpuPts,0,L);
     double cellSize=1.0;
     DelaunayGPU delGPU(N, maxNeighs, cellSize, domain);
     delGPU.setSafetyMode(safetyMode);
     GPUArray<int> gpuTriangulation((unsigned int) (maxNeighs)*N);
     GPUArray<int> cellNeighborNumber((unsigned int) N);
+    {
+    ArrayHandle<double2> p(gpuPts,access_location::device,access_mode::readwrite);
+    ArrayHandle<int> t(gpuTriangulation,access_location::device,access_mode::readwrite);
+    ArrayHandle<int> c(cellNeighborNumber,access_location::device,access_mode::readwrite);
+    }
+    /*
+    mProf.start("initial global triangulation");
     delGPU.GPU_GlobalDelTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
+    mProf.end("initial global triangulation");
+    mProf.start("second global triangulation");
+    delGPU.GPU_GlobalDelTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
+    mProf.end("second global triangulation");
+    mProf.start("third global triangulation");
+    delGPU.cListUpdated=false;
+    delGPU.GPU_GlobalDelTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
+    mProf.end("third global triangulation");
     printf("Initial global triangulation done\n");
-
-    for (int iteration = 0; iteration<=maximumIterations; ++iteration)
+    */
+    printf("randomly repairing %i points (out of %i) %i times\n",localNumber,N,maximumIterations);
+    for (int iteration = 0; iteration<maximumIterations; ++iteration)
         {
         std::random_shuffle(repairList.begin(),repairList.end());
-        GPUArray<int> setRep((unsigned int) N+1);
+        //GPUArray<int> setRep((unsigned int) N+1);
+        GPUArray<int> setRep((unsigned int) N);
         {
         ArrayHandle<int> sr(setRep);
-        for (int ii =0; ii < N+1; ++ii)
+        for (int ii =0; ii < setRep.getNumElements(); ++ii)
             {
             sr.data[ii]=-1;
             }
         for (int ii =0; ii < localNumber; ++ii)
             {
-            sr.data[ii]=repairList[ii];
+            //sr.data[ii]=repairList[ii];
+            sr.data[repairList[ii]]=repairList[ii];
             }
+        }
+        {
+        ArrayHandle<int> sr(setRep,access_location::device,access_mode::readwrite);
         }
         mProf.start("delGPU local triangulation");
         cudaProfilerStart();
+        delGPU.cListUpdated=false;
         delGPU.locallyRepairDelaunayTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber,setRep,localNumber);
         cudaProfilerStop();
         mProf.end("delGPU local triangulation");

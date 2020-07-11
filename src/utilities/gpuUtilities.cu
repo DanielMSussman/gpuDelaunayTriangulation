@@ -7,6 +7,30 @@
  \addtogroup utilityKernels
  @{
  */
+template <typename T>
+__global__ void gpu_add_gpuarray_kernel(T *a, T *b, int N)
+    {
+    // read in the particle that belongs to this thread
+    unsigned int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    if (idx >= N)
+        return;
+    a[idx] = a[idx]+b[idx];
+    return;
+    };
+
+
+template<typename T>
+bool gpu_add_gpuarray(GPUArray<T> &answer, GPUArray<T> &adder, int N, int maxBlockSize)
+    {
+    unsigned int block_size = maxBlockSize;
+    if (N < 128) block_size = 32;
+    unsigned int nblocks  = (N)/block_size + 1;
+    ArrayHandle<T> a(answer,access_location::device,access_mode::readwrite);
+    ArrayHandle<T> b(adder,access_location::device,access_mode::read);
+    gpu_add_gpuarray_kernel<<<nblocks,block_size>>>(a.data,b.data,N);
+    HANDLE_ERROR(cudaGetLastError());
+    return cudaSuccess;
+    }
 
 /*!
   A function of convenience... set an array on the device
@@ -74,4 +98,7 @@ template bool gpu_set_array<int2>(int2 *,int2, int, int);
 template bool gpu_set_array<int3>(int3 *,int3, int, int);
 template bool gpu_set_array<double>(double *,double, int, int);
 template bool gpu_set_array<double2>(double2 *,double2, int, int);
+
+template bool gpu_add_gpuarray<double>(GPUArray<double> &answer, GPUArray<double> &adder, int N, int maxBlockSize);
+template bool gpu_add_gpuarray<double2>(GPUArray<double2> &answer, GPUArray<double2> &adder, int N, int maxBlockSize);
 /** @} */ //end of group declaration

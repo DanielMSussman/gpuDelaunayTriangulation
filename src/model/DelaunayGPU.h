@@ -60,10 +60,15 @@ class DelaunayGPU
         void GPU_LocalDelTriangulation(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
         void GPU_GlobalDelTriangulation(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
 
+        void locallyRepairDelaunayTriangulation(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum,GPUArray<int> &repairList, int numberToRepair);
+
         multiProfiler prof;
 
         //!Set the safetyMode flag...IF safetyMode is false and the assumptions are not satisfied, program will be wrong with (possibly) no warning
         void setSafetyMode(bool _sm){safetyMode=_sm;};
+
+        //!< A box to calculate relative distances in a periodic domain.
+        PeriodicBoxPtr Box;
 
     private:
         //!Functions used by the GPU DT
@@ -111,8 +116,6 @@ class DelaunayGPU
         //!A 2dIndexer for computing where in the GPUArray to look for a given particles neighbors GPU
         Index2D GPU_idx;
 
-        //!< A box to calculate relative distances in a periodic domain.
-        PeriodicBoxPtr Box;
         //!A cell list for speeding up the calculation of the candidate 1-ring
         cellListGPU cList;
         int cellsize;

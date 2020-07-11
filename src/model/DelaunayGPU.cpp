@@ -125,6 +125,27 @@ void DelaunayGPU::updateList(GPUArray<double2> &points)
     cListUpdated=true;
 }
 
+//call the triangulation routines on a subset of the total number of points
+void DelaunayGPU::locallyRepairDelaunayTriangulation(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum,GPUArray<int> &repairList,int numberToRepair)
+    {
+    setRepair(repairList);
+    size_fixlist = numberToRepair;
+
+    int currentN = points.getNumElements();
+    bool recompute = true;
+    while (recompute)
+        {
+        Voronoi_Calc(points, GPUTriangulation, cellNeighborNum);
+        recompute =get_neighbors(points, GPUTriangulation, cellNeighborNum);
+        if(recompute)
+            {
+            GPUTriangulation.resize(MaxSize*currentN);
+            }
+        };
+
+	delGPUcircumcentersInitialized=false;
+    }
+
 //One of the main triangulation routines.
 //This function completly creates the triangulation fo each point in the repair array.
 void DelaunayGPU::GPU_LocalDelTriangulation(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum)
@@ -133,12 +154,12 @@ void DelaunayGPU::GPU_LocalDelTriangulation(GPUArray<double2> &points, GPUArray<
 	if(points.getNumElements()==0){printf("No points in GPU DT\n");return;}
 	if(delGPUcircumcenters.getNumElements()==0)
 	{
-		printf("GPU DT Local: No circuncircles for testing\n");
+		printf("GPU DT Local: No circumcircles for testing\n");
 		throw std::exception();
 	}
         if(delGPUcircumcentersInitialized==false)
 	{
-		printf("GPU DT Local: No circuncircles initialized\n");
+		printf("GPU DT Local: No circumcircles initialized\n");
                 throw std::exception();
 	}
         if(cListUpdated==false)

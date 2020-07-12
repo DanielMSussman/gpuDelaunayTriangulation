@@ -185,6 +185,9 @@ if(programSwitch >=0) //global tests
         if(iteration !=0)
             {
             mProf.start("delGPU triangulation");
+            mProf.start("delGPU cellList");
+            delGPU.updateList(gpuPts);
+            mProf.end("delGPU cellList");
             cudaProfilerStart();
             }
         delGPU.GPU_GlobalDelTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
@@ -261,7 +264,9 @@ else if (programSwitch == -1)
         }
         mProf.start("delGPU local triangulation");
         cudaProfilerStart();
-        delGPU.cListUpdated=false;
+            mProf.start("delGPU cellList");
+            delGPU.updateList(gpuPts);
+            mProf.end("delGPU cellList");
         delGPU.locallyRepairDelaunayTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber,setRep,localNumber);
         cudaProfilerStop();
         mProf.end("delGPU local triangulation");

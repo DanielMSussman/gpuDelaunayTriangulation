@@ -115,11 +115,11 @@ int main(int argc, char*argv[])
 
     multiProfiler mProf;
 
-    mProf.start("noise");
+    mProf.start("noise initialize");
     noiseSource noise(reproducible);
     noise.initialize(N);
     noise.initializeGPURNGs();
-    mProf.end("noise");
+    mProf.end("noise initialize");
 
     vector<double2> initialPositions(N);
     double L = sqrt(N);
@@ -132,10 +132,23 @@ if(programSwitch >=0) //global tests
 {
     //for timing tests, iteratate a random triangulation maximumIterations number of times
     cout << "iterating over " << maximumIterations << " random triangulations of " << N << " points randomly (uniformly) distributed in a square domain"  << endl;
-    for (int iteration = 0; iteration<=maximumIterations; ++iteration)
-        {
+    mProf.addName("triangulation comparison");
+    mProf.addName("delGPU total timing");
+    mProf.addName("delGPU triangulation");
+    mProf.addName("delGPU cellList");
+    mProf.addName("CGAL triangulation");
+    mProf.addName("generate points");
+    mProf.addName("delGPU initialization");
 
-        noise.fillArray(gpuPts,0,L);
+    mProf.start("delGPU initialization");
+    DelaunayGPU delGPU(N, maxNeighs, cellSize, domain);
+    mProf.end("delGPU initialization");
+
+    for (int iteration = 0; iteration<maximumIterations; ++iteration)
+        {
+        mProf.start("generate points");
+        noise.fillArray(gpuPts,0.,L);
+        mProf.end("generate points");
 
 
         DelaunayCGAL cgalTriangulation;
@@ -146,10 +159,10 @@ if(programSwitch >=0) //global tests
                 {
                 pts[ii]=make_pair(Point(gps.data[ii].x,gps.data[ii].y),ii);
                 }
-            if(iteration !=0)
+            //if(iteration !=0)
                 mProf.start("CGAL triangulation");
             cgalTriangulation.PeriodicTriangulation(pts,L,0,0,L);
-            if(iteration !=0)
+//            if(iteration !=0)
                 mProf.end("CGAL triangulation");
             /*
             maxNeighs=0;
@@ -157,15 +170,17 @@ if(programSwitch >=0) //global tests
                 if(cgalTriangulation.allneighs[ii].size() > maxNeighs)
                     maxNeighs = cgalTriangulation.allneighs[ii].size();
             */
-            }//end array handle scope
+            }//end CGAL test
             {
             ArrayHandle<double2> gps(gpuPts,access_location::device,access_mode::read);
             }
 
 
-        if(iteration !=0)
+        //if(iteration !=0)
+            {
             mProf.start("delGPU total timing");
-        DelaunayGPU delGPU(N, maxNeighs, cellSize, domain);
+            cudaProfilerStart();
+            }
 
         /*
         If true, will successfully rescue triangulation even if maxNeighs is too small.
@@ -178,21 +193,20 @@ if(programSwitch >=0) //global tests
         GPUArray<int> gpuTriangulation((unsigned int) (maxNeighs)*N);
         GPUArray<int> cellNeighborNumber((unsigned int) N);
         {
-        ArrayHandle<double2> gps(gpuPts,access_location::device,access_mode::read);
-        ArrayHandle<int> gt(gpuTriangulation,access_location::device,access_mode::read);
-        ArrayHandle<int> cnn(cellNeighborNumber,access_location::device,access_mode::read);
+        ArrayHandle<double2> gps(gpuPts,access_location::device,access_mode::readwrite);
+        ArrayHandle<int> gt(gpuTriangulation,access_location::device,access_mode::readwrite);
+        ArrayHandle<int> cnn(cellNeighborNumber,access_location::device,access_mode::readwrite);
         }
 
-        if(iteration !=0)
+        //if(iteration !=0)
             {
             mProf.start("delGPU triangulation");
             mProf.start("delGPU cellList");
             delGPU.updateList(gpuPts);
             mProf.end("delGPU cellList");
-            cudaProfilerStart();
             }
         delGPU.GPU_GlobalDelTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
-        if(iteration !=0)
+        //if(iteration !=0)
             {
             cudaProfilerStop();
             mProf.end("delGPU triangulation");

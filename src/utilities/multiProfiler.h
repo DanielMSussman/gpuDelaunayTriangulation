@@ -11,6 +11,17 @@ class multiProfiler
     public:
         multiProfiler(){numberOfProfiles = 0;};
 
+        void addName(string name)
+            {
+            map<string,int>::iterator it = processMap.find(name);
+            if(it !=processMap.end())
+                {
+                processMap.insert(std::pair<string,int>(name,numberOfProfiles) );
+                functionCalls.push_back(0);
+                timeTaken.push_back(0);
+                numberOfProfiles += 1;
+                }
+            }
         void start(string name)
             {
             map<string,int>::iterator it = processMap.find(name);

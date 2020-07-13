@@ -98,6 +98,9 @@ bool gpu_compute_cell_list(double2 *d_pt,
                                                           d_assist
                                                           );
     HANDLE_ERROR(cudaGetLastError());
+#ifdef DEBUGFLAGUP
+    cudaDeviceSynchronize();
+#endif
     return cudaSuccess;
     }
 

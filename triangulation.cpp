@@ -90,6 +90,7 @@ int main(int argc, char*argv[])
     ValueArg<int> fileIdxSwitch("f","file","file Index",false,-1,"int",cmd);
     ValueArg<int> safetyModeSwitch("s","safetyMode","0 is false, anything else is true", false,0,"int",cmd);
     ValueArg<double> localTestSwitch("l","localFraction","fraction of points to repair", false,0.05,"int",cmd);
+    ValueArg<double> cellListSizeSwitch("c","cellSize","linear dimension of cell list", false,1.0,"int",cmd);
 
     //parse the arguments
     cmd.parse( argc, argv );
@@ -103,6 +104,7 @@ int main(int argc, char*argv[])
     bool safetyMode  = safetyModeSwitch.getValue() ==0 ? false : true;
 
     double localFraction = localTestSwitch.getValue();
+    double cellSize = cellListSizeSwitch.getValue();
 
     int gpuSwitch = gpuSwitchArg.getValue();
     bool GPU = false;
@@ -161,7 +163,6 @@ if(programSwitch >=0) //global tests
             }
 
 
-        double cellSize=1.0;
         if(iteration !=0)
             mProf.start("delGPU total timing");
         DelaunayGPU delGPU(N, maxNeighs, cellSize, domain);
@@ -218,7 +219,6 @@ else if (programSwitch == -1)
         repairList[ii]=ii;
     int localNumber = floor(localFraction*N);
     noise.fillArray(gpuPts,0,L);
-    double cellSize=1.0;
     DelaunayGPU delGPU(N, maxNeighs, cellSize, domain);
     delGPU.setSafetyMode(safetyMode);
     GPUArray<int> gpuTriangulation((unsigned int) (maxNeighs)*N);
@@ -282,7 +282,6 @@ else
     int localNumber = floor(localFraction*N);
     printf("randomly repairing %i points (out of %i) %i times\n",localNumber,N,maximumIterations);
     noise.fillArray(gpuPts,0,L);
-    double cellSize=1.0;
     DelaunayGPU delGPU(N, maxNeighs, cellSize, domain);
     delGPU.setSafetyMode(safetyMode);
     GPUArray<int> gpuTriangulation((unsigned int) (maxNeighs)*N);

@@ -124,6 +124,6 @@ class DelaunayGPU
 
         //!A cell list for speeding up the calculation of the candidate 1-ring
         cellListGPU cList;
-        int cellsize;
+        double cellsize;
     };
 #endif

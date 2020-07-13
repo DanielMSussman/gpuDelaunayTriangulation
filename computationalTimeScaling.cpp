@@ -152,7 +152,8 @@ int main(int argc, char*argv[])
     GPUArray<double2> gpuPts((unsigned int) N);
     GPUArray<int> gpuTriangulation((unsigned int) (maxNeighs)*N);
     GPUArray<int> cellNeighborNumber((unsigned int) N);
-    for (int iteration = 0; iteration<maximumIterations; ++iteration)
+    DelaunayCGAL cgalTriangulation;
+    for (int iteration = 0; iteration<=maximumIterations; ++iteration)
         {
         cout << "iteration "<< iteration << endl << std::flush;
 
@@ -160,7 +161,6 @@ int main(int argc, char*argv[])
         noise.fillArray(gpuPts,0,L);
         cout << "...done" << endl<< std::flush;
 
-        DelaunayCGAL cgalTriangulation;
         if(programSwitch ==0)
             {
             cout << "\ttriangulating via cgal ..." << std::flush;
@@ -169,8 +169,10 @@ int main(int argc, char*argv[])
             {
                 pts[ii]=make_pair(Point(gps.data[ii].x,gps.data[ii].y),ii);
             }
+        if(iteration !=0)
             cgalTiming.start();
             cgalTriangulation.PeriodicTriangulation(pts,L,0,0,L);
+        if(iteration !=0)
             cgalTiming.end();
             cout << "...done " <<endl << std::flush;
             /*
@@ -187,7 +189,8 @@ int main(int argc, char*argv[])
 
         double cellSize=1.0;
         cout << "\ttriangulating via delGPU..." << std::flush;
-        delGPUtotalTiming.start();//include initialization and data transfer times
+        if(iteration !=0)
+            delGPUtotalTiming.start();//include initialization and data transfer times
         DelaunayGPU delGPU(N, maxNeighs, cellSize, domain);
         /*
         If true, will successfully rescue triangulation even if maxNeighs is too small.
@@ -201,10 +204,14 @@ int main(int argc, char*argv[])
         ArrayHandle<int> cnn(cellNeighborNumber,access_location::device,access_mode::readwrite);
         }
 
+        if(iteration !=0)
         delGPUTiming.start();//profile just the triangulation routine
         delGPU.GPU_GlobalDelTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
-        delGPUTiming.end();
-        delGPUtotalTiming.end();
+        if(iteration !=0)
+            {
+            delGPUTiming.end();
+            delGPUtotalTiming.end();
+            }
         cout << "...done " <<endl << std::flush;
         if(programSwitch ==0)
             {

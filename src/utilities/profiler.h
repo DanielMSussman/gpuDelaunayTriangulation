@@ -19,6 +19,7 @@ class profiler
             {
             endTime = chrono::high_resolution_clock::now();
             chrono::duration<double> difference = endTime-startTime;
+            times.push_back(difference.count());
             timeTaken += difference.count();
             functionCalls +=1;
             };
@@ -31,6 +32,11 @@ class profiler
                 return 0;
             };
 
+        void printVec()
+            {
+            for (int ii = 0; ii < times.size();++ii)
+                printf("%f\n",times[ii]);
+            }
         void print()
             {
             cout << "profiler \"" << name << "\" took an average of " << timing() << " per call over " << functionCalls << " calls...total time = "<<timing()*functionCalls << endl;
@@ -41,6 +47,7 @@ class profiler
         chrono::time_point<chrono::high_resolution_clock>  endTime;
         int functionCalls;
         double timeTaken;
+        vector<double> times;
         string name;
     };
 #endif

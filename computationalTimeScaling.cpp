@@ -205,6 +205,7 @@ int main(int argc, char*argv[])
         delGPUTiming.start();//profile just the triangulation routine
         mProf.start("delGPU triangulation");
         delGPU.GPU_GlobalDelTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
+        cudaDeviceSynchronize();
         mProf.end("delGPU triangulation");
         mProf.end("delGPU total timing");
         delGPUTiming.end();

@@ -190,7 +190,7 @@ if(programSwitch >=0) //global tests
         prof.start();
 
         delGPU.GPU_GlobalDelTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
-        
+        cudaDeviceSynchronize();
         prof.end();
         cudaProfilerStop();
         mProf.end("delGPU triangulation");

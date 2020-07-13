@@ -88,6 +88,7 @@ int main(int argc, char*argv[])
     ValueArg<int> maxNeighSwitchArg("m","maxNeighsDefault","default maximum neighbor number for gpu triangulation routine",false,16,"int",cmd);
     ValueArg<int> fileIdxSwitch("f","file","file Index",false,-1,"int",cmd);
     ValueArg<int> safetyModeSwitch("s","safetyMode","0 is false, anything else is true", false,0,"int",cmd);
+    ValueArg<double> cellListSizeSwitch("c","cellSize","linear dimension of cell list", false,1.0,"int",cmd);
 
     //parse the arguments
     cmd.parse( argc, argv );
@@ -98,6 +99,7 @@ int main(int argc, char*argv[])
     int maximumIterations = maxIterationsSwitchArg.getValue();
     int maxNeighs = maxNeighSwitchArg.getValue();
 
+    double cellSize = cellListSizeSwitch.getValue();
     bool safetyMode  = safetyModeSwitch.getValue() ==0 ? false : true;
 
     int gpuSwitch = gpuSwitchArg.getValue();
@@ -140,6 +142,7 @@ int main(int argc, char*argv[])
 
     vector<double2> initialPositions(N);
     double L = sqrt(N);
+    PeriodicBoxPtr domain = make_shared<periodicBoundaries>(L,L);
 
     profiler delGPUtotalTiming("DelGPUtotal");
     profiler delGPUTiming("DelGPU");
@@ -147,12 +150,13 @@ int main(int argc, char*argv[])
 
     //for timing tests, iteratate a random triangulation maximumIterations number of times
     cout << "iterating over " << maximumIterations << " random triangulations of " << N << " points randomly (uniformly) distributed in a square domain"  << endl;
-    PeriodicBoxPtr domain = make_shared<periodicBoundaries>(L,L);
     vector<pair<Point,int> > pts(N);
     GPUArray<double2> gpuPts((unsigned int) N);
     GPUArray<int> gpuTriangulation((unsigned int) (maxNeighs)*N);
     GPUArray<int> cellNeighborNumber((unsigned int) N);
     DelaunayCGAL cgalTriangulation;
+    DelaunayGPU delGPU(N, maxNeighs, cellSize, domain);
+
     for (int iteration = 0; iteration<=maximumIterations; ++iteration)
         {
         cout << "iteration "<< iteration << endl << std::flush;
@@ -183,15 +187,13 @@ int main(int argc, char*argv[])
             */
             }
             {
-            ArrayHandle<double2> gps(gpuPts,access_location::device,access_mode::read);
+            ArrayHandle<double2> gps(gpuPts,access_location::device,access_mode::readwrite);
             }
 
 
-        double cellSize=1.0;
         cout << "\ttriangulating via delGPU..." << std::flush;
         if(iteration !=0)
             delGPUtotalTiming.start();//include initialization and data transfer times
-        DelaunayGPU delGPU(N, maxNeighs, cellSize, domain);
         /*
         If true, will successfully rescue triangulation even if maxNeighs is too small.
         this is currently very slow (can be improved a lot), and will be once 
@@ -205,7 +207,8 @@ int main(int argc, char*argv[])
         }
 
         if(iteration !=0)
-        delGPUTiming.start();//profile just the triangulation routine
+            delGPUTiming.start();//profile just the triangulation routine
+        delGPU.updateList(gpuPts);
         delGPU.GPU_GlobalDelTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
         if(iteration !=0)
             {

@@ -34,6 +34,7 @@ class profiler
 
         void printVec()
             {
+            cout << name << ":"<<endl;
             for (int ii = 0; ii < times.size();++ii)
                 printf("%f\n",times[ii]);
             }

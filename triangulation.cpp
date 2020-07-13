@@ -131,7 +131,8 @@ int main(int argc, char*argv[])
 
 if(programSwitch >=0) //global tests
 {
-profiler prof("vecTest");
+profiler prof("triangulation");
+profiler prof2("total");
     //for timing tests, iteratate a random triangulation maximumIterations number of times
     cout << "iterating over " << maximumIterations << " random triangulations of " << N << " points randomly (uniformly) distributed in a square domain"  << endl;
     mProf.addName("triangulation comparison");
@@ -182,6 +183,7 @@ profiler prof("vecTest");
         if(iteration !=0)
             {
             mProf.start("delGPU total timing");
+            prof2.start();
             cudaProfilerStart();
             }
 
@@ -215,6 +217,7 @@ profiler prof("vecTest");
             prof.end();
             cudaProfilerStop();
             mProf.end("delGPU triangulation");
+            prof2.end();
             mProf.end("delGPU total timing");
             }
         if(programSwitch ==0)
@@ -231,6 +234,7 @@ profiler prof("vecTest");
     cout << endl;
     mProf.print();
     prof.printVec();
+    prof2.printVec();
 }//end global tests
 else if (programSwitch == -1)
     {

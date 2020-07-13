@@ -145,6 +145,19 @@ profiler prof2("total");
 
     mProf.start("delGPU initialization");
     DelaunayGPU delGPU(N, maxNeighs, cellSize, domain);
+        GPUArray<int> gpuTriangulation((unsigned int) (maxNeighs)*N);
+        GPUArray<int> cellNeighborNumber((unsigned int) N);
+        {
+        ArrayHandle<double2> gps(gpuPts,access_location::device,access_mode::readwrite);
+        ArrayHandle<int> gt(gpuTriangulation,access_location::device,access_mode::readwrite);
+        ArrayHandle<int> cnn(cellNeighborNumber,access_location::device,access_mode::readwrite);
+        }
+    /*
+        If true, will successfully rescue triangulation even if maxNeighs is too small.
+        this is currently very slow (can be improved a lot), and will be once 
+        other optimizations are done
+    */
+    delGPU.setSafetyMode(safetyMode);
     mProf.end("delGPU initialization");
     DelaunayCGAL cgalTriangulation;
 
@@ -154,7 +167,6 @@ profiler prof2("total");
         mProf.start("generate points");
         noise.fillArray(gpuPts,0.,L);
         mProf.end("generate points");
-
 
         if(programSwitch == 0)
             {
@@ -168,41 +180,16 @@ profiler prof2("total");
             cgalTriangulation.PeriodicTriangulation(pts,L,0,0,L);
             if(iteration !=0)
                 mProf.end("CGAL triangulation");
-            /*
-            maxNeighs=0;
-            for (int ii = 0; ii < cgalTriangulation.allneighs.size();++ii)
-                if(cgalTriangulation.allneighs[ii].size() > maxNeighs)
-                    maxNeighs = cgalTriangulation.allneighs[ii].size();
-            */
             }//end CGAL test
-            {
-            ArrayHandle<double2> gps(gpuPts,access_location::device,access_mode::read);
-            }
-
 
         if(iteration !=0)
             {
-            mProf.start("delGPU total timing");
-            prof2.start();
             cudaProfilerStart();
+            prof2.start();
+            mProf.start("delGPU total timing");
             }
 
-        /*
-        If true, will successfully rescue triangulation even if maxNeighs is too small.
-        this is currently very slow (can be improved a lot), and will be once 
-        other optimizations are done
-        */
-        delGPU.setSafetyMode(safetyMode);
         
-        
-        GPUArray<int> gpuTriangulation((unsigned int) (maxNeighs)*N);
-        GPUArray<int> cellNeighborNumber((unsigned int) N);
-        {
-        ArrayHandle<double2> gps(gpuPts,access_location::device,access_mode::readwrite);
-        ArrayHandle<int> gt(gpuTriangulation,access_location::device,access_mode::readwrite);
-        ArrayHandle<int> cnn(cellNeighborNumber,access_location::device,access_mode::readwrite);
-        }
-
         if(iteration !=0)
             {
             mProf.start("delGPU cellList");

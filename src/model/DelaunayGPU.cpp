@@ -33,6 +33,11 @@ void DelaunayGPU::initialize(PeriodicBoxPtr bx)
 
 		neighs.resize(Ncells);
 		repair.resize(Ncells+1);
+        {
+        ArrayHandleAsync<int> ms(maxOneRingSize,access_location::device,access_mode::read);
+        ArrayHandleAsync<int>  n(neighs,access_location::device,access_mode::read);
+        ArrayHandleAsync<int> r(repair,access_location::device,access_mode::read);
+        }
 		initializeCellList();
         prof.end("initialization");
 		}
@@ -40,14 +45,27 @@ void DelaunayGPU::initialize(PeriodicBoxPtr bx)
 
 //Resize the relevant array for the triangulation
 void DelaunayGPU::resize(const int nmax)
-{
-       MaxSize=nmax;
-       GPUVoroCur.resize(nmax*Ncells);
-       GPUDelNeighsPos.resize(nmax*Ncells);
-       GPUVoroCurRad.resize(nmax*Ncells);
-       GPUPointIndx.resize(nmax*Ncells);
-       GPU_idx = Index2D(nmax,Ncells);
-}
+    {
+    MaxSize=nmax;
+    GPUVoroCur.resize(nmax*Ncells);
+    GPUDelNeighsPos.resize(nmax*Ncells);
+    GPUVoroCurRad.resize(nmax*Ncells);
+    GPUPointIndx.resize(nmax*Ncells);
+    GPU_idx = Index2D(nmax,Ncells);
+    {
+    ArrayHandleAsync<double2> vc(GPUVoroCur,access_location::device,access_mode::read);
+    ArrayHandleAsync<double2> np(GPUDelNeighsPos,access_location::device,access_mode::read);
+    ArrayHandleAsync<double> vcr(GPUVoroCurRad,access_location::device,access_mode::read);
+    ArrayHandleAsync<int> pi(GPUPointIndx,access_location::device,access_mode::read);
+    }
+    }
+
+void DelaunayGPU::initializeCellList()
+	{
+	cList.setNp(Ncells);
+    cList.setBox(Box);
+    cList.setGridSize(cellsize);
+    }
 
 /*!
 \param points a GPUArray of double2's with the new desired points
@@ -80,13 +98,6 @@ void DelaunayGPU::setBox(periodicBoundaries &bx)
     else
         Box->setGeneral(b11,b12,b21,b22);
     };
-
-void DelaunayGPU::initializeCellList()
-	{
-	cList.setNp(Ncells);
-    cList.setBox(Box);
-    cList.setGridSize(cellsize);
-    }
 
 //sets the bucket lists with the points that they contain to use later in the triangulation
 void DelaunayGPU::setList(double csize, GPUArray<double2> &points)

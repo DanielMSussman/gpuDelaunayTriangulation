@@ -130,9 +130,9 @@ int main(int argc, char*argv[])
     GPUArray<double2> gpuPts((unsigned int) N);
 
 if(programSwitch >=0) //global tests
-{
-profiler prof("triangulation");
-profiler prof2("total");
+    {
+    profiler prof("triangulation");
+    profiler prof2("total");
     //for timing tests, iteratate a random triangulation maximumIterations number of times
     cout << "iterating over " << maximumIterations << " random triangulations of " << N << " points randomly (uniformly) distributed in a square domain"  << endl;
     mProf.addName("triangulation comparison");
@@ -145,13 +145,13 @@ profiler prof2("total");
 
     mProf.start("delGPU initialization");
     DelaunayGPU delGPU(N, maxNeighs, cellSize, domain);
-        GPUArray<int> gpuTriangulation((unsigned int) (maxNeighs)*N);
-        GPUArray<int> cellNeighborNumber((unsigned int) N);
-        {
-        ArrayHandle<double2> gps(gpuPts,access_location::device,access_mode::readwrite);
-        ArrayHandle<int> gt(gpuTriangulation,access_location::device,access_mode::readwrite);
-        ArrayHandle<int> cnn(cellNeighborNumber,access_location::device,access_mode::readwrite);
-        }
+    GPUArray<int> gpuTriangulation((unsigned int) (maxNeighs)*N);
+    GPUArray<int> cellNeighborNumber((unsigned int) N);
+    {
+    ArrayHandleAsync<double2> gps(gpuPts,access_location::device,access_mode::readwrite);
+    ArrayHandleAsync<int> gt(gpuTriangulation,access_location::device,access_mode::readwrite);
+    ArrayHandleAsync<int> cnn(cellNeighborNumber,access_location::device,access_mode::readwrite);
+    }
     /*
         If true, will successfully rescue triangulation even if maxNeighs is too small.
         this is currently very slow (can be improved a lot), and will be once 
@@ -162,7 +162,7 @@ profiler prof2("total");
     DelaunayCGAL cgalTriangulation;
 
     //When built in non-debug mode, the first iteration is much slower than subsequent ones... just time later ones
-    for (int iteration = 0; iteration<=maximumIterations; ++iteration)
+    for (int iteration = 0; iteration<maximumIterations; ++iteration)
         {
         mProf.start("generate points");
         noise.fillArray(gpuPts,0.,L);
@@ -175,38 +175,27 @@ profiler prof2("total");
                 {
                 pts[ii]=make_pair(Point(gps.data[ii].x,gps.data[ii].y),ii);
                 }
-            if(iteration !=0)
                 mProf.start("CGAL triangulation");
             cgalTriangulation.PeriodicTriangulation(pts,L,0,0,L);
-            if(iteration !=0)
                 mProf.end("CGAL triangulation");
             }//end CGAL test
 
-        if(iteration !=0)
-            {
-            cudaProfilerStart();
-            prof2.start();
-            mProf.start("delGPU total timing");
-            }
+        cudaProfilerStart();
+        prof2.start();
+        mProf.start("delGPU total timing");
+        mProf.start("delGPU cellList");
+        delGPU.updateList(gpuPts);
+        mProf.end("delGPU cellList");
+        mProf.start("delGPU triangulation");
+        prof.start();
 
-        
-        if(iteration !=0)
-            {
-            mProf.start("delGPU cellList");
-            delGPU.updateList(gpuPts);
-            mProf.end("delGPU cellList");
-            mProf.start("delGPU triangulation");
-            prof.start();
-            }
         delGPU.GPU_GlobalDelTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
-        if(iteration !=0)
-            {
-            prof.end();
-            cudaProfilerStop();
-            mProf.end("delGPU triangulation");
-            prof2.end();
-            mProf.end("delGPU total timing");
-            }
+        
+        prof.end();
+        cudaProfilerStop();
+        mProf.end("delGPU triangulation");
+        prof2.end();
+        mProf.end("delGPU total timing");
         if(programSwitch ==0)
             {
             cout << "testing quality of triangulation..." << endl;
@@ -214,15 +203,13 @@ profiler prof2("total");
             compareTriangulation(cgalTriangulation.allneighs, gpuTriangulation,cellNeighborNumber);
             mProf.end("triangulation comparison");
             cout << "... testing done!" << endl;
-            };
-
-    //delGPU.prof.print(); //only gives relative timings if cudaDevSynch is used... only for testing on WSL where profiling is harder
-    }
+            }
+        }//end loop over iterations
     cout << endl;
     mProf.print();
     prof.printVec();
     prof2.printVec();
-}//end global tests
+    }//end global tests
 else if (programSwitch == -1)
     {
     vector<int> repairList(N);

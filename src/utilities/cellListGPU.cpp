@@ -158,14 +158,14 @@ void cellListGPU::resetCellSizes()
     totalCells=xsize*ysize;
     if(cell_sizes.getNumElements() != totalCells)
         cell_sizes.resize(totalCells);
-    ArrayHandle<unsigned int> csizes(cell_sizes,access_location::device,access_mode::overwrite);
+    ArrayHandleAsync<unsigned int> csizes(cell_sizes,access_location::device,access_mode::overwrite);
     gpu_set_array<unsigned int>(csizes.data, 0,totalCells);
 
     //set all cell indexes to zero
     cell_list_indexer = Index2D(Nmax,totalCells);
     if(idxs.getNumElements() != cell_list_indexer.getNumElements())
         idxs.resize(cell_list_indexer.getNumElements());
-    ArrayHandle<int> cidxs(idxs,access_location::device,access_mode::overwrite);
+    ArrayHandleAsync<int> cidxs(idxs,access_location::device,access_mode::overwrite);
     gpu_set_array<int>(cidxs.data,0,cell_list_indexer.getNumElements());
 
     if(assist.getNumElements()!= 2)
@@ -417,9 +417,9 @@ void cellListGPU::computeGPU(GPUArray<double2> &points)
             ArrayHandle<double2> d_pt(points,access_location::device,access_mode::read);
 
             //get cell list arrays...readwrite so things are properly zeroed out
-            ArrayHandle<unsigned int> d_cell_sizes(cell_sizes,access_location::device,access_mode::readwrite);
-            ArrayHandle<int> d_idx(idxs,access_location::device,access_mode::readwrite);
-            ArrayHandle<int> d_assist(assist,access_location::device,access_mode::readwrite);
+            ArrayHandleAsync<unsigned int> d_cell_sizes(cell_sizes,access_location::device,access_mode::readwrite);
+            ArrayHandleAsync<int> d_idx(idxs,access_location::device,access_mode::readwrite);
+            ArrayHandleAsync<int> d_assist(assist,access_location::device,access_mode::readwrite);
 
             //call the gpu function
             gpu_compute_cell_list(d_pt.data,        //particle positions...broken

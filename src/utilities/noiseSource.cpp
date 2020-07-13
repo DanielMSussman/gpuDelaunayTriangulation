@@ -49,8 +49,8 @@ double noiseSource::getRealNormal(double mean, double std)
 
 void noiseSource::fillArray(GPUArray<double2> &array, double min, double max)
     {
-    ArrayHandle<double2> dat(array,access_location::device,access_mode::overwrite);
-    ArrayHandle<curandState> d_curandRNGs(RNGs,access_location::device,access_mode::readwrite);
+    ArrayHandleAsync<double2> dat(array,access_location::device,access_mode::overwrite);
+    ArrayHandleAsync<curandState> d_curandRNGs(RNGs,access_location::device,access_mode::readwrite);
 
     gpu_fill_double2_array_uniform(d_curandRNGs.data,dat.data,min,max,array.getNumElements());
     }
@@ -65,7 +65,7 @@ void noiseSource::initializeGPURNGs(int globalSeed,int tempSeed)
     {
     if(RNGs.getNumElements() != N)
         RNGs.resize(N);
-    ArrayHandle<curandState> d_curandRNGs(RNGs,access_location::device,access_mode::overwrite);
+    ArrayHandleAsync<curandState> d_curandRNGs(RNGs,access_location::device,access_mode::overwrite);
     int globalseed = globalSeed;
     if(!Reproducible)
         {

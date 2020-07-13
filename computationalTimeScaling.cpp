@@ -8,6 +8,7 @@
 #include "DelaunayGPU.h"
 #include "periodicBoundaries.h"
 #include "profiler.h"
+#include "multiProfiler.h"
 #include "indexer.h"
 #include <ctime>
 
@@ -135,7 +136,13 @@ int main(int argc, char*argv[])
 
     for(int nn = 0; nn < ns.size();++nn)
     {
+    multiProfiler mProf;
+
+    mProf.addName("delGPU total timing");
+    mProf.addName("delGPU triangulation");
+
     N=ns[nn];
+    if(N > 500000) maxNeighs = 24;
     noiseSource noise(reproducible);
     noise.initialize(N);
     noise.initializeGPURNGs();
@@ -154,10 +161,21 @@ int main(int argc, char*argv[])
     GPUArray<double2> gpuPts((unsigned int) N);
     GPUArray<int> gpuTriangulation((unsigned int) (maxNeighs)*N);
     GPUArray<int> cellNeighborNumber((unsigned int) N);
-    DelaunayCGAL cgalTriangulation;
     DelaunayGPU delGPU(N, maxNeighs, cellSize, domain);
+    /*
+       If true, will successfully rescue triangulation even if maxNeighs is too small.
+       this is currently very slow (can be improved a lot), and will be once 
+       other optimizations are done
+     */
+    {
+    ArrayHandleAsync<double2> gps(gpuPts,access_location::device,access_mode::readwrite);
+    ArrayHandleAsync<int> gt(gpuTriangulation,access_location::device,access_mode::readwrite);
+    ArrayHandleAsync<int> cnn(cellNeighborNumber,access_location::device,access_mode::readwrite);
+    }
+    delGPU.setSafetyMode(safetyMode);
+    DelaunayCGAL cgalTriangulation;
 
-    for (int iteration = 0; iteration<=maximumIterations; ++iteration)
+    for (int iteration = 0; iteration<maximumIterations; ++iteration)
         {
         cout << "iteration "<< iteration << endl << std::flush;
 
@@ -173,48 +191,24 @@ int main(int argc, char*argv[])
             {
                 pts[ii]=make_pair(Point(gps.data[ii].x,gps.data[ii].y),ii);
             }
-        if(iteration !=0)
             cgalTiming.start();
             cgalTriangulation.PeriodicTriangulation(pts,L,0,0,L);
-        if(iteration !=0)
             cgalTiming.end();
             cout << "...done " <<endl << std::flush;
-            /*
-            maxNeighs=0;
-            for (int ii = 0; ii < cgalTriangulation.allneighs.size();++ii)
-                if(cgalTriangulation.allneighs[ii].size() > maxNeighs)
-                    maxNeighs = cgalTriangulation.allneighs[ii].size();
-            */
             }
-            {
-            ArrayHandle<double2> gps(gpuPts,access_location::device,access_mode::readwrite);
-            }
-
 
         cout << "\ttriangulating via delGPU..." << std::flush;
-        if(iteration !=0)
-            delGPUtotalTiming.start();//include initialization and data transfer times
-        /*
-        If true, will successfully rescue triangulation even if maxNeighs is too small.
-        this is currently very slow (can be improved a lot), and will be once 
-        other optimizations are done
-        */
-        delGPU.setSafetyMode(safetyMode);
-        {
-        ArrayHandle<double2> gps(gpuPts,access_location::device,access_mode::readwrite);
-        ArrayHandle<int> gt(gpuTriangulation,access_location::device,access_mode::readwrite);
-        ArrayHandle<int> cnn(cellNeighborNumber,access_location::device,access_mode::readwrite);
-        }
+        mProf.start("delGPU total timing");
+        delGPUtotalTiming.start();
 
-        if(iteration !=0)
-            delGPUTiming.start();//profile just the triangulation routine
         delGPU.updateList(gpuPts);
+        delGPUTiming.start();//profile just the triangulation routine
+        mProf.start("delGPU triangulation");
         delGPU.GPU_GlobalDelTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
-        if(iteration !=0)
-            {
-            delGPUTiming.end();
-            delGPUtotalTiming.end();
-            }
+        mProf.end("delGPU triangulation");
+        mProf.end("delGPU total timing");
+        delGPUTiming.end();
+        delGPUtotalTiming.end();
         cout << "...done " <<endl << std::flush;
         if(programSwitch ==0)
             {
@@ -227,6 +221,7 @@ int main(int argc, char*argv[])
     cout << endl;
     delGPUTiming.print();
     delGPUtotalTiming.print();
+    mProf.print();
     double ratio = 0;
     if(programSwitch==0)
         {

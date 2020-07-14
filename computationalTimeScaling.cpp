@@ -142,7 +142,7 @@ int main(int argc, char*argv[])
     mProf.addName("delGPU triangulation");
 
     N=ns[nn];
-    if(N > 500000) maxNeighs = 24;
+    if(N > 500000) maxNeighs = 23;
     noiseSource noise(reproducible);
     noise.initialize(N);
     noise.initializeGPURNGs();

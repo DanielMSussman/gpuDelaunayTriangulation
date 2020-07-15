@@ -13,6 +13,9 @@
 #include "cuda_profiler_api.h"
 #include "gpuUtilities.cuh"
 
+#include <algorithm>
+#include "hilbert_curve.hpp"
+
 using namespace std;
 using namespace TCLAP;
 
@@ -23,6 +26,33 @@ void printVec(vector<int> &a)
     for (int ii = 0; ii < a.size();++ii)
         cout<< a[ii] << "\t";
     cout << endl;
+    }
+
+void hilbertSortArray(GPUArray<double2> &A)
+    {
+    cout << "hilbert sorting...";
+    int N = A.getNumElements();
+    {
+    ArrayHandle<double2> a(A);
+    vector<pair<int,double2> > p(N);
+    for(int ii =0; ii < N; ++ii)
+        {
+        double x = a.data[ii].x;
+        double y = a.data[ii].y;
+        int hilbertM = 30;
+        int hilbertIndex =xy2d(hilbertM,x,y);
+        p[ii] = make_pair(hilbertIndex,a.data[ii]);
+        }
+    std::sort(p.begin(),p.end());
+    for(int ii =0; ii < N; ++ii)
+        {
+        a.data[ii] = p[ii].second;
+        }
+    }
+    {
+    ArrayHandle<double2> a(A,access_location::device,access_mode::readwrite);
+    }
+    cout << "...done" << endl;
     }
 
 //! Compare neighbors found by different algorithsm. vector<vector< int> > a la CGAL, vs GPUArray<int> together with another GPUArray<int> for number of neighbors each cell has
@@ -164,11 +194,19 @@ if(programSwitch >=0) //global tests
     //When built in non-debug mode, the first iteration is much slower than subsequent ones... just time later ones
     for (int iteration = 0; iteration<maximumIterations; ++iteration)
         {
+cudaDeviceSynchronize();
         mProf.start("generate points");
-        noise.fillArray(gpuPts,0.,L);
+        if(programSwitch <=1)
+            noise.fillArray(gpuPts,0.,L);
+        else
+            {
+            noise.fillArray(gpuPts,0.,L);
+            hilbertSortArray(gpuPts);
+            }
         mProf.end("generate points");
+cudaDeviceSynchronize();
 
-        if(programSwitch == 0)
+        if(programSwitch%2 == 0)
             {
             ArrayHandle<double2> gps(gpuPts,access_location::host,access_mode::read);
             for (int ii = 0; ii < N; ++ii)
@@ -180,11 +218,13 @@ if(programSwitch >=0) //global tests
                 mProf.end("CGAL triangulation");
             }//end CGAL test
 
+cudaDeviceSynchronize();
         cudaProfilerStart();
         prof2.start();
         mProf.start("delGPU total timing");
         mProf.start("delGPU cellList");
         delGPU.updateList(gpuPts);
+cudaDeviceSynchronize();
         mProf.end("delGPU cellList");
         mProf.start("delGPU triangulation");
         prof.start();
@@ -196,7 +236,7 @@ if(programSwitch >=0) //global tests
         mProf.end("delGPU triangulation");
         prof2.end();
         mProf.end("delGPU total timing");
-        if(programSwitch ==0)
+        if(programSwitch %2==0)
             {
             cout << "testing quality of triangulation..." << endl;
             mProf.start("triangulation comparison");

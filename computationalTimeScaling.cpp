@@ -12,6 +12,9 @@
 #include "indexer.h"
 #include <ctime>
 
+#include <algorithm>
+#include "hilbert_curve.hpp"
+
 using namespace std;
 using namespace TCLAP;
 
@@ -22,6 +25,34 @@ void printVec(vector<int> &a)
     for (int ii = 0; ii < a.size();++ii)
         cout<< a[ii] << "\t";
     cout << endl;
+    }
+
+//! sort points along a hilbert curve
+void hilbertSortArray(GPUArray<double2> &A)
+    {
+    cout << "hilbert sorting...";
+    int N = A.getNumElements();
+    {
+    ArrayHandle<double2> a(A);
+    vector<pair<int,double2> > p(N);
+    for(int ii =0; ii < N; ++ii)
+        {
+        double x = a.data[ii].x;
+        double y = a.data[ii].y;
+        int hilbertM = 30;
+        int hilbertIndex =xy2d(hilbertM,x,y);
+        p[ii] = make_pair(hilbertIndex,a.data[ii]);
+        }
+    std::sort(p.begin(),p.end());
+    for(int ii =0; ii < N; ++ii)
+        {
+        a.data[ii] = p[ii].second;
+        }
+    }
+    {
+    ArrayHandle<double2> a(A,access_location::device,access_mode::readwrite);
+    }
+    cout << "...done" << endl;
     }
 
 //! Compare neighbors found by different algorithsm. vector<vector< int> > a la CGAL, vs GPUArray<int> together with another GPUArray<int> for number of neighbors each cell has
@@ -180,10 +211,16 @@ int main(int argc, char*argv[])
         cout << "iteration "<< iteration << endl << std::flush;
 
         cout << "\tcreating random points..." << std::flush;
-        noise.fillArray(gpuPts,0,L);
+        if(programSwitch <=1)
+            noise.fillArray(gpuPts,0.,L);
+        else
+            {
+            noise.fillArray(gpuPts,0.,L);
+            hilbertSortArray(gpuPts);
+            }
         cout << "...done" << endl<< std::flush;
 
-        if(programSwitch ==0)
+        if(programSwitch%2 ==0)
             {
             cout << "\ttriangulating via cgal ..." << std::flush;
             ArrayHandle<double2> gps(gpuPts,access_location::host,access_mode::read);
@@ -211,7 +248,7 @@ int main(int argc, char*argv[])
         delGPUTiming.end();
         delGPUtotalTiming.end();
         cout << "...done " <<endl << std::flush;
-        if(programSwitch ==0)
+        if(programSwitch%2 ==0)
             {
             cout << "\ttesting quality of triangulation..." << std::flush;
             compareTriangulation(cgalTriangulation.allneighs, gpuTriangulation,cellNeighborNumber);
@@ -224,7 +261,7 @@ int main(int argc, char*argv[])
     delGPUtotalTiming.print();
     mProf.print();
     double ratio = 0;
-    if(programSwitch==0)
+    if(programSwitch%2 ==0)
         {
         ratio = cgalTiming.timeTaken*delGPUTiming.functionCalls / (cgalTiming.functionCalls * delGPUTiming.timeTaken);
         cgalTiming.print();

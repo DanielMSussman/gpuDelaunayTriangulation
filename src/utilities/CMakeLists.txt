@@ -6,6 +6,7 @@ include_directories(${CMAKE_SOURCE_DIR}/inc ${CUDA_INCLUDE_DIRS})
 add_library(utility
     noiseSource.cpp
     cellListGPU.cpp
+    hilbert_curve.cpp
     )
 cuda_add_library(utilityGPU
     noiseSource.cu

@@ -28,6 +28,34 @@ void printVec(vector<int> &a)
     cout << endl;
     }
 
+void squareLattice(GPUArray<double2> &A, noiseSource &noise, int N)
+    {
+    cout << "initializing in generic square lattice..." << endl;
+    if(sqrt((float) N) != sqrt(N)) 
+        {
+        cout << endl << "for convenience, square lattice testing only for N = m^2 for m an integer" << endl;
+        throw std::exception();
+        }
+    ArrayHandle<double2> a(A);
+    int xb = sqrt(N);
+    double phase = 0.1;
+    int ii =0;
+    for (int x = 0; x < xb; ++x)
+        for (int y = 0; y < xb; ++y)
+            {
+            double p1 = noise.getRealUniform(x+.5-phase,y+.5+phase);
+            double p2 = noise.getRealUniform(x+.5-phase,y+.5+phase);
+            a.data[ii] = make_double2(p1,p2);
+            ii +=1;
+            }
+    {
+    ArrayHandle<double2> a(A,access_location::device,access_mode::readwrite);
+    }
+    cout <<  ii << " ...done" << endl;
+
+
+    }
+
 void hilbertSortArray(GPUArray<double2> &A)
     {
     cout << "hilbert sorting...";
@@ -164,7 +192,7 @@ if(programSwitch >=0) //global tests
     profiler prof("triangulation");
     profiler prof2("total");
     //for timing tests, iteratate a random triangulation maximumIterations number of times
-    cout << "iterating over " << maximumIterations << " random triangulations of " << N << " points randomly (uniformly) distributed in a square domain"  << endl;
+    cout << "iterating over " << maximumIterations << " random triangulations of " << N << " points distributed in a square domain"  << endl;
     mProf.addName("triangulation comparison");
     mProf.addName("delGPU total timing");
     mProf.addName("delGPU triangulation");
@@ -198,9 +226,14 @@ cudaDeviceSynchronize();
         mProf.start("generate points");
         if(programSwitch <=1)
             noise.fillArray(gpuPts,0.,L);
-        else
+        else if (programSwitch <=3)
             {
             noise.fillArray(gpuPts,0.,L);
+            hilbertSortArray(gpuPts);
+            }
+        else
+            {
+            squareLattice(gpuPts,noise,N);
             hilbertSortArray(gpuPts);
             }
         mProf.end("generate points");

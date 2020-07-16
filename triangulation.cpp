@@ -43,8 +43,8 @@ void squareLattice(GPUArray<double2> &A, noiseSource &noise, int N)
     for (int x = 0; x < xb; ++x)
         for (int y = 0; y < xb; ++y)
             {
-            double p1 = noise.getRealUniform(x+.5-phase,y+.5+phase);
-            double p2 = noise.getRealUniform(x+.5-phase,y+.5+phase);
+            double p1 = noise.getRealUniform(x+.5-phase,x+.5+phase);
+            double p2 = noise.getRealUniform(y+.5-phase,y+.5+phase);
             a.data[ii] = make_double2(p1,p2);
             ii +=1;
             }

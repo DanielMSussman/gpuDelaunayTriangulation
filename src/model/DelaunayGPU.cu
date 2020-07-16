@@ -14,6 +14,40 @@
     @{
 */
 
+
+__device__ inline double checkCCW(const double2 pa, const double2 pb, const double2 pc)
+    {
+    return (pa.x - pb.x) * (pa.y - pc.y) - (pa.y - pb.y) * (pa.x - pc.x);
+    }
+__device__ inline int checkCW(const double pax, const double pay, const double pbx, const double pby, const double pcx, const double pcy)
+    {
+    return ((pax - pbx) * (pay - pcy) - (pay - pby) * (pax - pcx)) >0 ? 0 : 1;
+    }
+
+/*!
+   Is a given cell bucket inside a given edge's angle?
+*/
+__device__ inline bool cellBucketInsideAngle(const double2 v, const int cx, const int cy, const double2 v1, const double2 v2, const double cellSize, periodicBoundaries &box)
+    {
+    double2 p1,p2,p3,p4;
+    double2 pt = make_double2(0.,0.);
+    double2 c1 = make_double2(cx*cellSize,cy*cellSize);
+    double2 c2 = make_double2((cx+1)*cellSize,cy*cellSize);
+    double2 c3 = make_double2((cx+1)*cellSize,(cy+1)*cellSize);
+    double2 c4 = make_double2(cx*cellSize,(cy+1)*cellSize);
+
+    box.minDist(v,c1,p1);
+    if(checkCCW(pt, v1, p1)>0 && checkCCW(pt, v2, p1)<0)return true;
+    box.minDist(v,c2,p2);
+    if(checkCCW(pt, v1, p2)>0 && checkCCW(pt, v2, p2)<0)return true; 
+    box.minDist(v,c3,p3);
+    if(checkCCW(pt, v1, p3)>0 && checkCCW(pt, v2, p3)<0)return true; 
+    box.minDist(v,c4,p4);
+    if(checkCCW(pt, v1, p4)>0 && checkCCW(pt, v2, p4)<0)return true; 
+
+    return false;
+    }
+
 /*!
   Independently check every triangle in the Delaunay mesh to see if the cirumcircle defined by the
   vertices of that triangle is empty. Use the cell list to ensure that only checks of nearby
@@ -290,11 +324,8 @@ counter+=1;
 
                     //7-Q<-Hv intersect Q
                     //8-Update P, based on Q (Algorithm 2)      
-                    if((disp.x/2-xx)*(disp.y/2-0)-(disp.y/2-yy)*(disp.x/2-0)>0)
-                        cx=0; //which side is v at
-                    else
-                        cx=1;
-                    cy=0; //which side will Q be at
+                    cx = checkCW(0.5*disp.x,0.5*disp.y,xx,yy,0.,0.);
+                    //cy=0; //which side will Q be at
                     j=jj-1;
                     if(j<0)j+=poly_size;
                     m=jj;
@@ -306,11 +337,7 @@ counter+=1;
                         q=jj-pp;
                         if(q<0)
                             q+=poly_size;
-
-                        if((disp.x/2-xx)*(disp.y/2-Q[GPU_idx(q,kidx)].y)-(disp.y/2-yy)*(disp.x/2-Q[GPU_idx(q, kidx)].x)>0)
-                            cy=0;
-                        else
-                            cy=1;
+                        cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[GPU_idx(q, kidx)].x,Q[GPU_idx(q, kidx)].y );
 
                         save=(q+1)%poly_size;
                         if(newidx==P_idx[GPU_idx(q, kidx)] || newidx==P_idx[GPU_idx(save,kidx)])
@@ -715,7 +742,7 @@ __device__ void get_oneRing_function(int kidx,
     {
     //I will reuse most variables
     int Hv[N];
-    double2 disp, pt1, pt2, v;
+    double2 disp, pt1, pt2, v,v1,v2;
     double rr, xx, yy;
     unsigned int ii, numberInCell, newidx, iii, aa, removed;
     int q, pp, m, w, j, jj, cx, cy, save_j, cc, dd, cell_rad_in, bin, cell_x, cell_y, save;
@@ -740,6 +767,8 @@ counter+=1;
         ii=GPU_idx(jj, kidx);
         iii=GPU_idx((jj+1)%poly_size, kidx);
         pt1=v+Q[ii]; //absolute position (within box) of circumcenter
+        v1=P[GPU_idx(jj, kidx)];
+        v2=P[GPU_idx((jj+1)%poly_size,kidx)];
         Box.putInBoxReal(pt1);
         double currentRadius = Q_rad[ii];
         cc = max(0,min(xsize-1,(int)floor(pt1.x/boxsize)));
@@ -769,6 +798,7 @@ maxCellsChecked  = max(maxCellsChecked,cell_rad_in*cell_rad_in);
                 if (cy <0)
                     cy+=ysize;
 
+                //if(!cellBucketInsideAngle(v,cx,cy,v1,v2,boxsize,Box))continue;
                 //check if there are any points in cellsns, if so do change, otherwise go for next bin
                 bin = ci(cx,cy);
                 numberInCell = d_cell_sizes[bin];
@@ -809,11 +839,9 @@ blah3 +=1;
 
                     //7-Q<-Hv intersect Q
                     //8-Update P, based on Q (Algorithm 2)      
-                    if((disp.x/2-xx)*(disp.y/2-0)-(disp.y/2-yy)*(disp.x/2-0)>0)
-                        cx=0; //which side is v at
-                    else
-                        cx=1;
-                    cy=0; //which side will Q be at
+                    //which side is v at?
+                    cx = checkCW(0.5*disp.x,0.5*disp.y,xx,yy,0.,0.);
+                    //which side will Q be at
                     j=jj-1;
                     if(j<0)j+=poly_size;
                     m=jj;
@@ -828,10 +856,7 @@ blah3 +=1;
                         //if(q<0)
                         //    q+=poly_size;
 
-                        if((disp.x/2-xx)*(disp.y/2-Q[GPU_idx(q,kidx)].y)-(disp.y/2-yy)*(disp.x/2-Q[GPU_idx(q, kidx)].x)>0)
-                            cy=0;
-                        else
-                            cy=1;
+                        cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[GPU_idx(q, kidx)].x,Q[GPU_idx(q, kidx)].y );
 
                         save=(q+1)%poly_size;
                         if(newidx==P_idx[GPU_idx(q, kidx)] || newidx==P_idx[GPU_idx(save,kidx)])

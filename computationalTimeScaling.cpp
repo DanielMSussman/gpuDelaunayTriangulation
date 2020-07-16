@@ -31,20 +31,15 @@ void squareLattice(GPUArray<double2> &A, noiseSource &noise, int N)
     {
     cout << "initializing in generic square lattice..." << endl;
     ArrayHandle<double2> a(A);
-    int xb = ceil(sqrt(N));
-    if(xb*xb < N)
-        {
-        //cout << endl << "for convenience, square lattice testing only for N = m^2 for m an integer" << endl;
-        //throw std::exception();
-        xb+=1;
-        }
-    double phase = 0.1;
+    int xb = ceil(sqrt((double) N));
+    double Lscale = sqrt((double) N)/(double) xb;
+    double phase = 0.25;
     int ii =0;
     for (int x = 0; x < xb; ++x)
         for (int y = 0; y < xb; ++y)
             {
-            double p1 = noise.getRealUniform(x+.5-phase,x+.5+phase);
-            double p2 = noise.getRealUniform(y+.5-phase,y+.5+phase);
+            double p1 = noise.getRealUniform(Lscale*(x+.5-phase),Lscale*(x+.5+phase));
+            double p2 = noise.getRealUniform(Lscale*(y+.5-phase),Lscale*(y+.5+phase));
             if(ii < N)
                 a.data[ii] = make_double2(p1,p2);
             ii +=1;
@@ -53,9 +48,8 @@ void squareLattice(GPUArray<double2> &A, noiseSource &noise, int N)
     ArrayHandle<double2> a(A,access_location::device,access_mode::readwrite);
     }
     cout <<  ii << " ...done" << endl;
-
-
     }
+
 
 //! sort points along a hilbert curve
 void hilbertSortArray(GPUArray<double2> &A)

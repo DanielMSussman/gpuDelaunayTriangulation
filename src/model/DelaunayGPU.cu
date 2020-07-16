@@ -720,17 +720,6 @@ __device__ void get_oneRing_function(int kidx,
     unsigned int ii, numberInCell, newidx, iii, aa, removed;
     int q, pp, m, w, j, jj, cx, cy, save_j, cc, dd, cell_rad_in, bin, cell_x, cell_y, save;
     unsigned int poly_size=d_neighnum[kidx];
-    int PP_idx[N];
-    double2 PP[N];
-    double2 QQ[N];
-    double QQ_rad[N];
-    for (int jj = 0; jj < poly_size; ++jj)
-        {
-        PP_idx[jj] = P_idx[GPU_idx(jj, kidx)];
-        PP[jj] = P[GPU_idx(jj, kidx)];
-        QQ[jj] = Q[GPU_idx(jj, kidx)];
-        QQ_rad[jj] = Q_rad[GPU_idx(jj, kidx)];
-        }
 
 int spotcheck=18;
 //if(kidx==spotcheck) printf("initial poly_size = %i\n",poly_size);
@@ -748,13 +737,11 @@ int maxCellsChecked=0;
     for(jj=0; jj<poly_size; jj++)
         {
 counter+=1;
-//        ii=GPU_idx(jj, kidx);
-//        iii=GPU_idx((jj+1)%poly_size, kidx);
-        ii = jj;
-        iii = (jj+1)%poly_size;
-        pt1=v+QQ[ii]; //absolute position (within box) of circumcenter
+        ii=GPU_idx(jj, kidx);
+        iii=GPU_idx((jj+1)%poly_size, kidx);
+        pt1=v+Q[ii]; //absolute position (within box) of circumcenter
         Box.putInBoxReal(pt1);
-        double currentRadius = QQ_rad[ii];
+        double currentRadius = Q_rad[ii];
         cc = max(0,min(xsize-1,(int)floor(pt1.x/boxsize)));
         dd = max(0,min(ysize-1,(int)floor(pt1.y/boxsize)));
         q = ci(cc,dd);
@@ -794,13 +781,13 @@ maxCellsChecked  = max(maxCellsChecked,cell_rad_in*cell_rad_in);
 blah +=1;
                     newidx = d_cell_idx[cli(aa,bin)];
                     //6-Compute the half-plane Hv defined by the bissector of v and c, containing c
-                    if(newidx==PP_idx[ii] || newidx==PP_idx[iii] || newidx==kidx)continue;
+                    if(newidx==P_idx[ii] || newidx==P_idx[iii] || newidx==kidx)continue;
 blah2+=1;
                     //how far is the point from the circumcircle's center?
                     //rr=Q_rad[ii]*Q_rad[ii];
                     rr=currentRadius*currentRadius;
                     Box.minDist(d_pt[newidx], v, disp); //disp = vector between new point and the point we're constructing the one ring of
-                    Box.minDist(disp,QQ[ii],pt1); // pt1 gets overwritten by vector between new point and Pi's circumcenter
+                    Box.minDist(disp,Q[ii],pt1); // pt1 gets overwritten by vector between new point and Pi's circumcenter
                     if(pt1.x*pt1.x+pt1.y*pt1.y>rr)continue;
 blah3 +=1;
                     //calculate half-plane bissector
@@ -841,13 +828,13 @@ blah3 +=1;
                         //if(q<0)
                         //    q+=poly_size;
 
-                        if((disp.x/2-xx)*(disp.y/2-QQ[q].y)-(disp.y/2-yy)*(disp.x/2-QQ[q].x)>0)
+                        if((disp.x/2-xx)*(disp.y/2-Q[GPU_idx(q,kidx)].y)-(disp.y/2-yy)*(disp.x/2-Q[GPU_idx(q, kidx)].x)>0)
                             cy=0;
                         else
                             cy=1;
 
                         save=(q+1)%poly_size;
-                        if(newidx==PP_idx[q] || newidx==PP_idx[save])
+                        if(newidx==P_idx[GPU_idx(q, kidx)] || newidx==P_idx[GPU_idx(save,kidx)])
                             cy=cx+1;
 
                         Hv[q]=cy;
@@ -880,10 +867,10 @@ blah3 +=1;
                                 case 2:
                                     for(pp=q; pp<poly_size-1; pp++)
                                         {
-                                        QQ[pp] = QQ[pp+1];
-                                        PP[pp] = PP[pp+1];
-                                        QQ_rad[pp] = QQ_rad[pp+1];
-                                        PP_idx[pp] = PP_idx[pp+1];
+                                        Q[GPU_idx(pp,kidx)]=Q[GPU_idx(pp+1,kidx)];
+                                        P[GPU_idx(pp,kidx)]=P[GPU_idx(pp+1,kidx)];
+                                        Q_rad[GPU_idx(pp,kidx)]=Q_rad[GPU_idx(pp+1,kidx)];
+                                        P_idx[GPU_idx(pp,kidx)]=P_idx[GPU_idx(pp+1,kidx)];
                                         Hv[pp]=Hv[pp+1];
                                         }
                                     poly_size--;
@@ -901,8 +888,8 @@ blah3 +=1;
                         continue;
 
                     //Introduce new (if it exists) delaunay neighbor and new voronoi points
-                    Circumcircle(PP[j], disp, pt1, xx);
-                    Circumcircle(disp, PP[m], pt2, yy);
+                    Circumcircle(P[GPU_idx(j,kidx)], disp, pt1, xx);
+                    Circumcircle(disp, P[GPU_idx(m,kidx)], pt2, yy);
                     if(removed==1)
                         {
                         poly_size++;
@@ -914,21 +901,21 @@ blah3 +=1;
                             }
                         for(pp=poly_size-2; pp>j; pp--)
                             {
-                            QQ[pp+1] = QQ[pp];
-                            PP[pp+1] = PP[pp];
-                            QQ_rad[pp+1] = QQ_rad[pp];
-                            PP_idx[pp+1] = PP_idx[pp];
+                            Q[GPU_idx(pp+1,kidx)]=Q[GPU_idx(pp,kidx)];
+                            P[GPU_idx(pp+1,kidx)]=P[GPU_idx(pp,kidx)];
+                            Q_rad[GPU_idx(pp+1,kidx)]=Q_rad[GPU_idx(pp,kidx)];
+                            P_idx[GPU_idx(pp+1,kidx)]=P_idx[GPU_idx(pp,kidx)];
                             }
                         }
 
                     m=(j+1)%poly_size;
-                    QQ[m] = pt2;
-                    QQ_rad[m] = yy;
-                    PP[m] = disp;
-                    PP_idx[m] = newidx;
+                    Q[GPU_idx(m,kidx)]=pt2;
+                    Q_rad[GPU_idx(m,kidx)]=yy;
+                    P[GPU_idx(m,kidx)]=disp;
+                    P_idx[GPU_idx(m,kidx)]=newidx;
 
-                    QQ[j] = pt1;
-                    QQ_rad[j] = xx;
+                    Q[GPU_idx(j,kidx)]=pt1;
+                    Q_rad[GPU_idx(j,kidx)]=xx;
                     flag=true;
                     break;
                     }//end checking all points in the current cell list cell
@@ -945,13 +932,6 @@ blah3 +=1;
             flag=false;
             }
         }//end iterative loop over all edges of the 1-ring
-    for (int jj = 0; jj < poly_size; ++jj)
-        {
-        P_idx[GPU_idx(jj, kidx)] = PP_idx[jj];
-        //P[GPU_idx(jj, kidx)] = PP[jj];
-        //Q[GPU_idx(jj, kidx)] = QQ[jj];
-        //Q_rad[GPU_idx(jj, kidx)] = QQ_rad[jj];
-        }
 
     d_neighnum[kidx]=poly_size;
 //    if(kidx==spotcheck) printf(" points checked for kidx %i = %i, ignore self points = %i, ignore points outside circumcircles = %i, total neighs = %i \n",kidx,blah,blah2,blah3,poly_size);

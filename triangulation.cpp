@@ -31,13 +31,14 @@ void printVec(vector<int> &a)
 void squareLattice(GPUArray<double2> &A, noiseSource &noise, int N)
     {
     cout << "initializing in generic square lattice..." << endl;
+    ArrayHandle<double2> a(A);
+    int xb = sqrt(N);
     if(sqrt((float) N) != sqrt(N)) 
         {
         cout << endl << "for convenience, square lattice testing only for N = m^2 for m an integer" << endl;
-        throw std::exception();
+        //throw std::exception();
+        xb+=1;
         }
-    ArrayHandle<double2> a(A);
-    int xb = sqrt(N);
     double phase = 0.1;
     int ii =0;
     for (int x = 0; x < xb; ++x)
@@ -45,7 +46,8 @@ void squareLattice(GPUArray<double2> &A, noiseSource &noise, int N)
             {
             double p1 = noise.getRealUniform(x+.5-phase,x+.5+phase);
             double p2 = noise.getRealUniform(y+.5-phase,y+.5+phase);
-            a.data[ii] = make_double2(p1,p2);
+            if(ii < N)
+                a.data[ii] = make_double2(p1,p2);
             ii +=1;
             }
     {

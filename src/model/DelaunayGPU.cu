@@ -744,6 +744,8 @@ __device__ void get_oneRing_function_alternate(int kidx,
                 int *maximumNeighborNumber
                 )
     {
+
+    //I will reuse most variables
     double2 disp, pt1, pt2, v,currentQ;// v1, v2;
     double rr, xx, yy,currentRadius;
     unsigned int numberInCell, newidx, aa, removed;
@@ -753,9 +755,7 @@ __device__ void get_oneRing_function_alternate(int kidx,
     v = d_pt[kidx];
     bool flag=false;
 
-
     int baseIdx = GPU_idx(0,kidx);
-
     for(jj=0; jj<poly_size; jj++)
         {
         currentQ = Q[baseIdx+jj];
@@ -790,9 +790,13 @@ __device__ void get_oneRing_function_alternate(int kidx,
                 bin = ci(cx,cy);
                 numberInCell = d_cell_sizes[bin];
 
+                //if(kidx==spotcheck) printf("(jj,ff) = (%i,%i)\t counter = %i \t cell_rad_in = %i \t cellIdex = %i\t numberInCell = %i\n",
+                //                            jj,ff,counter,cell_rad_in,bin,numberInCell);
+
                 for (aa = 0; aa < numberInCell; ++aa)//check parts in cell
                     {
                     newidx = d_cell_idx[cli(aa,bin)];
+                    if(newidx == kidx) continue;
                     bool skipPoint = false;
                     for (int pidx = 0; pidx < poly_size; ++pidx)
                         if(newidx == P_idx[baseIdx+pidx]) skipPoint = true;
@@ -828,92 +832,91 @@ __device__ void get_oneRing_function_alternate(int kidx,
 
                     //Remove the voronoi test points on the opposite half sector from the cell v
                     //If more than 1 voronoi test point is removed, then also adjust the delaunay neighbors of v
-                    int removeCW=0;
-                    bool removeCCW=false;
-                    bool firstRemove=true;
-                    removed=0;
-                    j=-1;
-                    //which side will Q be at
-                    cy=checkCW(0.5*disp.x,0.5*disp.y,xx,yy,Q[baseIdx+poly_size-1].x,Q[baseIdx+poly_size-1].y);
+		    int removeCW=0;
+		    bool removeCCW=false;
+		    bool firstRemove=true;
+		    removed=0;
+		    j=-1;
+		    //which side will Q be at
+            cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[baseIdx+poly_size-1].x,Q[baseIdx+poly_size-1].y);
 
-                    removeCW=cy;
-                    if(cy!=cx)
-                        {
-        			    j=poly_size-1;
-		        	    removed++;
-			            removeCCW=true;
-                        }
+		    removeCW=cy;
+	            if(cy!=cx)
+	            {
+			    j=poly_size-1;
+			    removed++;
+			    removeCCW=true;
+	            }
 
-                    for(w=0; w<poly_size-1; w++)
-                        {
-                        cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[baseIdx+w].x,Q[baseIdx+w].y);
-		                if(cy!=cx)
-                            {
-                            if(removeCCW==false)
-                                {
-                                if(j<0)
-                                    j=w;
-                                else if(j>w)
-                                        j=w;
-                                removed++;
-                                removeCCW=true;
-                                }
-                            else
-                                {
-                                if(firstRemove==false)
-                                    {
-                                    for(pp=w; pp<poly_size-1; pp++)
-                                        {
-                                        Q[baseIdx+pp]=Q[baseIdx+pp+1];
-                                        P[baseIdx+pp]=P[baseIdx+pp+1];
-                                        Q_rad[baseIdx+pp]=Q_rad[baseIdx+pp+1];
-                                        P_idx[baseIdx+pp]=P_idx[baseIdx+pp+1];
-                                        }
-                                    poly_size--;
-                                    if(j>w)j--;
-                                    w--;
-                                    }
-                                else firstRemove=false;
-                                removed++;
-                                }	    
-                            }
-                        else
-                            removeCCW=false;
-                        }
-                    if(removeCW!=cx && removeCCW==true && firstRemove==false)
-                        {
-                        poly_size--;
-                        if(j>w)j--;
-                        }
+		    for(w=0; w<poly_size-1; w++)
+		    {
+            cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[baseIdx+w].x,Q[baseIdx+w].y);
+              if(cy!=cx)
+		            {
+				    if(removeCCW==false)
+				    {
+					    if(j<0)
+						    j=w;
+					    else if(j>w)
+						    j=w;
+					    removed++;
+					    removeCCW=true;
+				    }
+				    else
+				    {
+					    if(firstRemove==false)
+					    {
+						    for(pp=w; pp<poly_size-1; pp++)
+						    {
+							    Q[GPU_idx(pp,kidx)]=Q[GPU_idx(pp+1,kidx)];
+							    P[GPU_idx(pp,kidx)]=P[GPU_idx(pp+1,kidx)];
+							    Q_rad[GPU_idx(pp,kidx)]=Q_rad[GPU_idx(pp+1,kidx)];
+							    P_idx[GPU_idx(pp,kidx)]=P_idx[GPU_idx(pp+1,kidx)];
+						    }
+						    poly_size--;
+						    if(j>w)j--;
+						    w--;
+					    }
+					    else firstRemove=false;
+					    removed++;
+				    }	    
+			    }
+			    else
+				    removeCCW=false;
+		    }
+		    if(removeCW!=cx && removeCCW==true && firstRemove==false)
+		    {
+			    poly_size--;
+			    if(j>w)j--;
+		    }
 
                     if(removed==0)
                         continue;
+
                     //Introduce new (if it exists) delaunay neighbor and new voronoi points
-                    if(removed>1)
-                        m=(j+2)%poly_size;
-                    else 
-                        m=(j+1)%poly_size;
-                    Circumcircle(P[baseIdx+j], disp, pt1, xx);
-                    Circumcircle(disp, P[baseIdx+m], pt2, yy);
+		    if(removed>1)m=(j+2)%poly_size;
+		    else m=(j+1)%poly_size;
+                    Circumcircle(P[GPU_idx(j,kidx)], disp, pt1, xx);
+                    Circumcircle(disp, P[GPU_idx(m,kidx)], pt2, yy);
                     if(removed==1)
                         {
                         poly_size++;
                         for(pp=poly_size-2; pp>j; pp--)
                             {
-                            Q[baseIdx+pp+1]=Q[baseIdx+pp];
-                            P[baseIdx+pp+1]=P[baseIdx+pp];
-                            Q_rad[baseIdx+pp+1]=Q_rad[baseIdx+pp];
-                            P_idx[baseIdx+pp+1]=P_idx[baseIdx+pp];
+                            Q[GPU_idx(pp+1,kidx)]=Q[GPU_idx(pp,kidx)];
+                            P[GPU_idx(pp+1,kidx)]=P[GPU_idx(pp,kidx)];
+                            Q_rad[GPU_idx(pp+1,kidx)]=Q_rad[GPU_idx(pp,kidx)];
+                            P_idx[GPU_idx(pp+1,kidx)]=P_idx[GPU_idx(pp,kidx)];
                             }
                         }
-                    m=(j+1)%poly_size;
-                    Q[baseIdx+m]=pt2;
-                    Q_rad[baseIdx+m]=yy;
-                    P[baseIdx+m]=disp;
-                    P_idx[baseIdx+m]=newidx;
+		    m=(j+1)%poly_size;
+                    Q[GPU_idx(m,kidx)]=pt2;
+                    Q_rad[GPU_idx(m,kidx)]=yy;
+                    P[GPU_idx(m,kidx)]=disp;
+                    P_idx[GPU_idx(m,kidx)]=newidx;
 
-                    Q[baseIdx+j]=pt1;
-                    Q_rad[baseIdx+j]=xx;
+                    Q[GPU_idx(j,kidx)]=pt1;
+                    Q_rad[GPU_idx(j,kidx)]=xx;
                     flag=true;
                     break;
                     }//end checking all points in the current cell list cell
@@ -937,7 +940,7 @@ __device__ void get_oneRing_function_alternate(int kidx,
     d_neighnum[kidx]=poly_size;
 
     return;
-    }
+    }//end function
 
 /*!
 device function that goes from a candidate 1-ring to an actual 1-ring
@@ -1249,7 +1252,7 @@ __global__ void gpu_get_neighbors_no_sort_kernel(const double2* __restrict__ d_p
     unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
     if (tidx >= Ncells)return;
     if(d_fixlist[tidx] >=0)
-        get_oneRing_function(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+        get_oneRing_function_alternate(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
 
     return;
     }//end function
@@ -1280,7 +1283,8 @@ __global__ void gpu_get_neighbors_global_kernel(const double2* __restrict__ d_pt
     unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
     if (tidx >= Ncells)return;
 
-    get_oneRing_function(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+    get_oneRing_function_alternate(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+    //get_oneRing_function(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
         
     return;
     }//end function

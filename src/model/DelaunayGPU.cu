@@ -718,7 +718,6 @@ __global__ void gpu_voronoi_calc_global_kernel(const double2* __restrict__ d_pt,
 /*!
 device function that goes from a candidate 1-ring to an actual 1-ring
 */
-template<int N>
 __device__ void get_oneRing_function(int kidx,
                 const double2* __restrict__ d_pt,
                 const unsigned int* __restrict__ d_cell_sizes,
@@ -740,12 +739,11 @@ __device__ void get_oneRing_function(int kidx,
                 int *maximumNeighborNumber
                 )
     {
-    //I will reuse most variables
-    int Hv[N];
-    double2 disp, pt1, pt2, v,v1,v2;
+    double2 disp, pt1, pt2, v;
+//    double2 v1,v2;
     double rr, xx, yy;
-    unsigned int ii, numberInCell, newidx, iii, aa, removed;
-    int q, pp, m, w, j, jj, cx, cy, save_j, cc, dd, cell_rad_in, bin, cell_x, cell_y, save;
+    unsigned int ii, numberInCell, newidx, aa, removed;
+    int q, pp, m, w, j, jj, cx, cy, save_j, cc, dd, cell_rad_in, bin, cell_x, cell_y;
     unsigned int poly_size=d_neighnum[kidx];
 
 int spotcheck=18;
@@ -766,8 +764,8 @@ int maxCellsChecked=0;
 counter+=1;
         ii=GPU_idx(jj, kidx);
         pt1=v+Q[ii]; //absolute position (within box) of circumcenter
-        v1=P[GPU_idx(jj, kidx)];
-        v2=P[GPU_idx((jj+1)%poly_size,kidx)];
+//        v1=P[GPU_idx(jj, kidx)];
+//        v2=P[GPU_idx((jj+1)%poly_size,kidx)];
         Box.putInBoxReal(pt1);
         double currentRadius = Q_rad[ii];
         cc = max(0,min(xsize-1,(int)floor(pt1.x/boxsize)));
@@ -858,10 +856,7 @@ blah3 +=1;
                     //see which voronoi temp points fall within the same bisector as cell v
                     for(q = poly_size-1;q >=0; q--)
                         {
-                        cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[GPU_idx(q, kidx)].x,Q[GPU_idx(q, kidx)].y );
-                        save=(q+1)%poly_size;
-                        Hv[q]=cy;
-                        if(cy==cx && save_j==-1)
+                        if(save_j == -1 && cx==checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[GPU_idx(q, kidx)].x,Q[GPU_idx(q, kidx)].y ))
                             save_j=q;
                         }
 
@@ -870,7 +865,7 @@ blah3 +=1;
                     for(w=0; w<poly_size; w++)
                         {
                         q=(save_j+w)%poly_size;
-                        cy=Hv[q];
+                        cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[GPU_idx(q, kidx)].x,Q[GPU_idx(q, kidx)].y);
                         if(cy!=cx)
                             {
                             switch(removed)
@@ -891,7 +886,6 @@ blah3 +=1;
                                         P[GPU_idx(pp,kidx)]=P[GPU_idx(pp+1,kidx)];
                                         Q_rad[GPU_idx(pp,kidx)]=Q_rad[GPU_idx(pp+1,kidx)];
                                         P_idx[GPU_idx(pp,kidx)]=P_idx[GPU_idx(pp+1,kidx)];
-                                        Hv[pp]=Hv[pp+1];
                                         }
                                     poly_size--;
                                     if(j>q)j--;
@@ -960,7 +954,6 @@ blah3 +=1;
 //This kernel updates the initial polygon into the real delaunay one.
 //It goes through the same steps as in the paper, using the half plane intersection routine.
 //It outputs the complete triangulation per point in CCW order
-template<int N>
 __global__ void gpu_get_neighbors_kernel(const double2* __restrict__ d_pt,
                 const unsigned int* __restrict__ d_cell_sizes,
                 const int* __restrict__ d_cell_idx,
@@ -990,12 +983,11 @@ __global__ void gpu_get_neighbors_kernel(const double2* __restrict__ d_pt,
     unsigned int kidx=d_fixlist[tidx];
     if (kidx >= Ncells)return;
 
-    get_oneRing_function<N>(kidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+    get_oneRing_function(kidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
 
     return;
     }//end function
 
-template<int N>
 __global__ void gpu_get_neighbors_no_sort_kernel(const double2* __restrict__ d_pt,
                 const unsigned int* __restrict__ d_cell_sizes,
                 const int* __restrict__ d_cell_idx,
@@ -1022,13 +1014,12 @@ __global__ void gpu_get_neighbors_no_sort_kernel(const double2* __restrict__ d_p
     unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
     if (tidx >= Ncells)return;
     if(d_fixlist[tidx] >=0)
-        get_oneRing_function<N>(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+        get_oneRing_function(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
 
     return;
     }//end function
 
 //!global get neighbors does not need a fixlist
-template<int N>
 __global__ void gpu_get_neighbors_global_kernel(const double2* __restrict__ d_pt,
                 const unsigned int* __restrict__ d_cell_sizes,
                 const int* __restrict__ d_cell_idx,
@@ -1054,7 +1045,7 @@ __global__ void gpu_get_neighbors_global_kernel(const double2* __restrict__ d_pt
     unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
     if (tidx >= Ncells)return;
 
-    get_oneRing_function<N>(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+    get_oneRing_function(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
         
     return;
     }//end function
@@ -1213,31 +1204,10 @@ bool gpu_get_neighbors_no_sort(double2* d_pt, //the point set
     unsigned int block_size = 128;
     if (Ncells < 128) block_size = 32;
     unsigned int nblocks  = Ncells/block_size + 1;
-
-
-        if(currentMaxNeighborNum < 16)
-            gpu_get_neighbors_no_sort_kernel<16><<<nblocks,block_size>>>(
+    gpu_get_neighbors_no_sort_kernel<<<nblocks,block_size>>>(
                       d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,Ncells,xsize,ysize,
                       boxsize,Box,ci,cli,d_fixlist,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
                       );
-        else if (currentMaxNeighborNum < 24)
-            gpu_get_neighbors_no_sort_kernel<24><<<nblocks,block_size>>>(
-                      d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,Ncells,xsize,ysize,
-                      boxsize,Box,ci,cli,d_fixlist,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
-                      );
-        else if (currentMaxNeighborNum < 32)
-            gpu_get_neighbors_no_sort_kernel<32><<<nblocks,block_size>>>(
-                      d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,Ncells,xsize,ysize,
-                      boxsize,Box,ci,cli,d_fixlist,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
-                      );
-        else if (currentMaxNeighborNum < 64)
-            gpu_get_neighbors_no_sort_kernel<64><<<nblocks,block_size>>>(
-                      d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,Ncells,xsize,ysize,
-                      boxsize,Box,ci,cli,d_fixlist,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
-                      );
-        else
-            UNWRITTENCODE("You have hit an unexpected limit") ;
-
 
     HANDLE_ERROR(cudaGetLastError());
 #ifdef DEBUGFLAGUP
@@ -1281,63 +1251,17 @@ bool gpu_get_neighbors(double2* d_pt, //the point set
 
     if(globalRoutine)
         {
-        if(currentMaxNeighborNum < 12)
-            gpu_get_neighbors_global_kernel<12><<<nblocks,block_size>>>(
+        gpu_get_neighbors_global_kernel<<<nblocks,block_size>>>(
                       d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,
                       Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
                       );
-        if(currentMaxNeighborNum < 14)
-            gpu_get_neighbors_global_kernel<14><<<nblocks,block_size>>>(
-                      d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,
-                      Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
-                      );
-        if(currentMaxNeighborNum < 16)
-            gpu_get_neighbors_global_kernel<16><<<nblocks,block_size>>>(
-                      d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,
-                      Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
-                      );
-        else if (currentMaxNeighborNum < 24)
-            gpu_get_neighbors_global_kernel<24><<<nblocks,block_size>>>(
-                      d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,
-                      Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
-                      );
-        else if (currentMaxNeighborNum < 32)
-            gpu_get_neighbors_global_kernel<32><<<nblocks,block_size>>>(
-                      d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,
-                      Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
-                      );
-        else if (currentMaxNeighborNum < 64)
-            gpu_get_neighbors_global_kernel<64><<<nblocks,block_size>>>(
-                      d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,
-                      Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
-                      );
-        else
-            UNWRITTENCODE("You have hit an unexpected limit") ;
         }
     else
         {
-        if(currentMaxNeighborNum < 16)
-            gpu_get_neighbors_kernel<16><<<nblocks,block_size>>>(
+        gpu_get_neighbors_kernel<<<nblocks,block_size>>>(
                       d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,Ncells,xsize,ysize,
                       boxsize,Box,ci,cli,d_fixlist,Nf,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
                       );
-        else if (currentMaxNeighborNum < 24)
-            gpu_get_neighbors_kernel<24><<<nblocks,block_size>>>(
-                      d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,Ncells,xsize,ysize,
-                      boxsize,Box,ci,cli,d_fixlist,Nf,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
-                      );
-        else if (currentMaxNeighborNum < 32)
-            gpu_get_neighbors_kernel<32><<<nblocks,block_size>>>(
-                      d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,Ncells,xsize,ysize,
-                      boxsize,Box,ci,cli,d_fixlist,Nf,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
-                      );
-        else if (currentMaxNeighborNum < 64)
-            gpu_get_neighbors_kernel<64><<<nblocks,block_size>>>(
-                      d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,Ncells,xsize,ysize,
-                      boxsize,Box,ci,cli,d_fixlist,Nf,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
-                      );
-        else
-            UNWRITTENCODE("You have hit an unexpected limit") ;
         }
 
 

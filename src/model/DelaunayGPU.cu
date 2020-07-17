@@ -239,27 +239,27 @@ __device__ void virtual_voronoi_calc_function(        int kidx,
         Q_rad[GPU_idx(m,kidx)]=rr;
         }
 
-int blah = 0;
-int blah2 = 0;
-int blah3=0;
-int maxCellsChecked=0;
-
     double2 disp, pt2, v;
     double xx, yy;
     unsigned int ii, numberInCell, newidx, iii, aa, removed;
     int q, pp, w, j, jj, cx, cy, save_j, cc, dd, cell_rad_in, cell_rad, bin, cell_x, cell_y, save;
 
+#ifdef DEBUGFLAGUP
+int blah = 0;
+int blah2 = 0;
+int blah3=0;
+int maxCellsChecked=0;
 int spotcheck=18;
-//if(kidx==spotcheck) printf("VP initial poly_size = %i\n",poly_size);
+int counter= 0 ;
+if(kidx==spotcheck) printf("VP initial poly_size = %i\n",poly_size);
+#endif
 
     v = d_pt[kidx];
     bool flag=false;
 
-int counter= 0 ;
 
     for(jj=0; jj<poly_size; jj++)
         {
-counter+=1;
         pt1=v;//+Q[GPU_idx(jj,kidx)]; //absolute position (within box) of circumcenter
         Box.putInBoxReal(pt1);
         double currentRadius = Q_rad[GPU_idx(jj,kidx)];
@@ -271,7 +271,10 @@ counter+=1;
         cell_rad = min(cc,xsize/2);
         cell_x = q%xsize;
         cell_y = (q - cell_x)/ysize;
-        maxCellsChecked  = max(maxCellsChecked,cell_rad*cell_rad);
+#ifdef DEBUGFLAGUP
+maxCellsChecked  = max(maxCellsChecked,cell_rad*cell_rad);
+counter+=1;
+#endif
         for (cell_rad_in = 0; cell_rad_in <= cell_rad; ++cell_rad_in)//check cell buckets in circumcircle
         {
         for (cc = -cell_rad_in; cc <= cell_rad_in; ++cc)//check neigh cc
@@ -292,24 +295,30 @@ counter+=1;
                 bin = ci(cx,cy);
                 numberInCell = d_cell_sizes[bin];
 
-                //if(kidx==spotcheck) printf("(jj,ff) = (%i,%i)\t counter = %i \t cell_rad_in = %i \t cellIdex = %i\t numberInCell = %i\n",
-                //                            jj,ff,counter,cell_rad_in,bin,numberInCell);
-
+#ifdef DEBUGFLAGUP
+//if(kidx==spotcheck) printf("(jj,ff) = (%i,%i)\t counter = %i \t cell_rad_in = %i \t cellIdex = %i\t numberInCell = %i\n", jj,ff,counter,cell_rad_in,bin,numberInCell);
+#endif
                 for (aa = 0; aa < numberInCell; ++aa)//check parts in cell
                     {
-                    blah +=1;
+#ifdef DEBUGFLAGUP
+blah +=1;
+#endif
                     newidx = d_cell_idx[cli(aa,bin)];
                     //6-Compute the half-plane Hv defined by the bissector of v and c, containing c
                     ii=GPU_idx(jj, kidx);
                     iii=GPU_idx((jj+1)%poly_size, kidx);
                     if(newidx==P_idx[ii] || newidx==P_idx[iii] || newidx==kidx)continue;
-                    blah2+=1;
+#ifdef DEBUGFLAGUP
+blah2+=1;
+#endif
                     //how far is the point from the circumcircle's center?
                     rr=Q_rad[ii]*Q_rad[ii];
                     Box.minDist(d_pt[newidx], v, disp); //disp = vector between new point and the point we're constructing the one ring of
                     Box.minDist(disp,Q[ii],pt1); // pt1 gets overwritten by vector between new point and Pi's circumcenter
                     if(pt1.x*pt1.x+pt1.y*pt1.y>rr)continue;
-                    blah3 +=1;
+#ifdef DEBUGFLAGUP
+blah3 +=1;
+#endif
                     //calculate half-plane bissector
                     if(abs(disp.y)<THRESHOLD)
                         {
@@ -441,18 +450,9 @@ counter+=1;
         }//end iterative loop over all edges of the 1-ring
 
     d_neighnum[kidx]=poly_size;
-//    if(kidx==spotcheck) printf("VP points checked for kidx %i = %i, ignore self points = %i, ignore points outside circumcircles = %i, total neighs = %i \n",kidx,blah,blah2,blah3,poly_size);
-
-/*if(kidx==0){
-printf("{ ");
-for(int gg=0; gg<poly_size; gg++)printf("{%f, %f}, ", P[GPU_idx(gg, kidx)].x,  P[GPU_idx(gg, kidx)].y);
-printf(" {%f, %f} }\n", P[GPU_idx(0, kidx)].x,  P[GPU_idx(0, kidx)].y);
-printf("{ ");
-for(int gg=0; gg<poly_size; gg++)printf("{%f, %f}, ", Q[GPU_idx(gg, kidx)].x,  Q[GPU_idx(gg, kidx)].y);
-printf(" {%f, %f} }\n", Q[GPU_idx(0, kidx)].x,  Q[GPU_idx(0, kidx)].y); 
-}*/
-
-
+#ifdef DEBUGFLAGUP
+    if(kidx==spotcheck) printf("VP points checked for kidx %i = %i, ignore self points = %i, ignore points outside circumcircles = %i, total neighs = %i \n",kidx,blah,blah2,blah3,poly_size);
+#endif
     }
 
 /*!
@@ -751,24 +751,23 @@ __device__ void get_oneRing_function(int kidx,
     int q, pp, m, w, j, jj, cx, cy, save_j, cc, dd, cell_rad_in, bin, cell_x, cell_y;
     unsigned int poly_size=d_neighnum[kidx];
 
-int spotcheck=18;
-//if(kidx==spotcheck) printf("initial poly_size = %i\n",poly_size);
-
     v = d_pt[kidx];
     bool flag=false;
 
-
-int counter= 0 ;
+#ifdef DEBUGFLAGUP
 int blah = 0;
 int blah2 = 0;
 int blah3=0;
 int maxCellsChecked=0;
+int spotcheck=18;
+int counter= 0 ;
+if(kidx==spotcheck) printf("VP initial poly_size = %i\n",poly_size);
+#endif
     
     int baseIdx = GPU_idx(0,kidx);
 
     for(jj=0; jj<poly_size; jj++)
         {
-counter+=1;
         currentQ = Q[baseIdx+jj];
         currentRadius = Q_rad[baseIdx+jj];
         pt1=v+currentQ; //absolute position (within box) of circumcenter
@@ -784,7 +783,10 @@ counter+=1;
         cell_rad_in = min(cc,xsize/2);
         cell_x = q%xsize;
         cell_y = (q - cell_x)/ysize;
+#ifdef DEBUGFLAGUP
+counter+=1;
 maxCellsChecked  = max(maxCellsChecked,cell_rad_in*cell_rad_in);
+#endif
 
         //This ordering of how the cells are checked is clearly inefficient -- perhaps replace it by a biased
         //ordereding depending on where the circumcenter is relative to the target point
@@ -803,12 +805,15 @@ maxCellsChecked  = max(maxCellsChecked,cell_rad_in*cell_rad_in);
                 bin = ci(cx,cy);
                 numberInCell = d_cell_sizes[bin];
 
-                //if(kidx==spotcheck) printf("(jj,ff) = (%i,%i)\t counter = %i \t cell_rad_in = %i \t cellIdex = %i\t numberInCell = %i\n",
-                //                            jj,ff,counter,cell_rad_in,bin,numberInCell);
+#ifdef DEBUGFLAGUP
+//if(kidx==spotcheck) printf("(jj,ff) = (%i,%i)\t counter = %i \t cell_rad_in = %i \t cellIdex = %i\t numberInCell = %i\n",jj,ff,counter,cell_rad_in,bin,numberInCell);
+#endif
 
                 for (aa = 0; aa < numberInCell; ++aa)//check parts in cell
                     {
+#ifdef DEBUGFLAGUP
 blah +=1;
+#endif
                     newidx = d_cell_idx[cli(aa,bin)];
                     //skip any newidx's that are already part of the 1-ring
                     if(newidx == kidx) continue;
@@ -818,13 +823,17 @@ blah +=1;
                     if (skipPoint) continue;
 
                     //6-Compute the half-plane Hv defined by the bissector of v and c, containing c
+#ifdef DEBUGFLAGUP
 blah2+=1;
+#endif
                     //how far is the point from the circumcircle's center?
                     rr=currentRadius*currentRadius;
                     Box.minDist(d_pt[newidx], v, disp); //disp = vector between new point and the point we're constructing the one ring of
                     Box.minDist(disp,currentQ,pt1); // pt1 gets overwritten by vector between new point and Pi's circumcenter
                     if(pt1.x*pt1.x+pt1.y*pt1.y>rr) continue;
+#ifdef DEBUGFLAGUP
 blah3 +=1;
+#endif
                     //calculate half-plane bissector
                     if(abs(disp.y)<THRESHOLD)
                         {
@@ -952,7 +961,9 @@ blah3 +=1;
         }//end iterative loop over all edges of the 1-ring
 
     d_neighnum[kidx]=poly_size;
-//    if(kidx==spotcheck) printf(" points checked for kidx %i = %i, ignore self points = %i, ignore points outside circumcircles = %i, total neighs = %i \n",kidx,blah,blah2,blah3,poly_size);
+#ifdef DEBUGFLAGUP
+if(kidx==spotcheck) printf(" points checked for kidx %i = %i, ignore self points = %i, ignore points outside circumcircles = %i, total neighs = %i \n",kidx,blah,blah2,blah3,poly_size);
+#endif
     }
 
 //This kernel updates the initial polygon into the real delaunay one.

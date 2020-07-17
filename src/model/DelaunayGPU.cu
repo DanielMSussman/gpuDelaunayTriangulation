@@ -23,7 +23,12 @@ __device__ inline int checkCW(const double pax, const double pay, const double p
     {
     return ((pax - pbx) * (pay - pcy) - (pay - pby) * (pax - pcx)) >0 ? 0 : 1;
     }
-
+__device__ inline unsigned positiveModulo(int i, unsigned n)
+    {
+    int mod = i % (int) n;
+    if(i < 0) mod += n;
+    return mod;
+    };
 /*!
    Is a given cell bucket inside a given edge's angle?
 */
@@ -739,10 +744,10 @@ __device__ void get_oneRing_function(int kidx,
                 int *maximumNeighborNumber
                 )
     {
-    double2 disp, pt1, pt2, v;
+    double2 disp, pt1, pt2, v,currentQ;
 //    double2 v1,v2;
-    double rr, xx, yy;
-    unsigned int ii, numberInCell, newidx, aa, removed;
+    double rr, xx, yy,currentRadius;
+    unsigned int numberInCell, newidx, aa, removed;
     int q, pp, m, w, j, jj, cx, cy, save_j, cc, dd, cell_rad_in, bin, cell_x, cell_y;
     unsigned int poly_size=d_neighnum[kidx];
 
@@ -758,16 +763,19 @@ int blah = 0;
 int blah2 = 0;
 int blah3=0;
 int maxCellsChecked=0;
+    
+    int baseIdx = GPU_idx(0,kidx);
 
     for(jj=0; jj<poly_size; jj++)
         {
 counter+=1;
-        ii=GPU_idx(jj, kidx);
-        pt1=v+Q[ii]; //absolute position (within box) of circumcenter
+        currentQ = Q[baseIdx+jj];
+        currentRadius = Q_rad[baseIdx+jj];
+        pt1=v+currentQ; //absolute position (within box) of circumcenter
 //        v1=P[GPU_idx(jj, kidx)];
 //        v2=P[GPU_idx((jj+1)%poly_size,kidx)];
         Box.putInBoxReal(pt1);
-        double currentRadius = Q_rad[ii];
+
         cc = max(0,min(xsize-1,(int)floor(pt1.x/boxsize)));
         dd = max(0,min(ysize-1,(int)floor(pt1.y/boxsize)));
         q = ci(cc,dd);
@@ -788,13 +796,8 @@ maxCellsChecked  = max(maxCellsChecked,cell_rad_in*cell_rad_in);
                 {
                 if(!(cc==-cri || cc == cri || dd == -cri || dd == cri))
                     continue;
-                cx = (cell_x+dd)%xsize;
-                if (cx <0)
-                    cx+=xsize;
-                cy = (cell_y+cc)%ysize;
-                if (cy <0)
-                    cy+=ysize;
-
+                cx = positiveModulo(cell_x+dd,xsize); 
+                cy = positiveModulo(cell_y+cc,ysize); 
                 //if(!cellBucketInsideAngle(v,cx,cy,v1,v2,boxsize,Box))continue;
                 //check if there are any points in cellsns, if so do change, otherwise go for next bin
                 bin = ci(cx,cy);
@@ -811,17 +814,16 @@ blah +=1;
                     if(newidx == kidx) continue;
                     bool skipPoint = false;
                     for (int pidx = 0; pidx < poly_size; ++pidx)
-                        if(newidx == P_idx[GPU_idx(pidx, kidx)]) skipPoint = true;
+                        if(newidx == P_idx[baseIdx+pidx]) skipPoint = true;
                     if (skipPoint) continue;
 
                     //6-Compute the half-plane Hv defined by the bissector of v and c, containing c
 blah2+=1;
                     //how far is the point from the circumcircle's center?
-                    //rr=Q_rad[ii]*Q_rad[ii];
                     rr=currentRadius*currentRadius;
                     Box.minDist(d_pt[newidx], v, disp); //disp = vector between new point and the point we're constructing the one ring of
-                    Box.minDist(disp,Q[ii],pt1); // pt1 gets overwritten by vector between new point and Pi's circumcenter
-                    if(pt1.x*pt1.x+pt1.y*pt1.y>rr)continue;
+                    Box.minDist(disp,currentQ,pt1); // pt1 gets overwritten by vector between new point and Pi's circumcenter
+                    if(pt1.x*pt1.x+pt1.y*pt1.y>rr) continue;
 blah3 +=1;
                     //calculate half-plane bissector
                     if(abs(disp.y)<THRESHOLD)
@@ -844,20 +846,22 @@ blah3 +=1;
                     //8-Update P, based on Q (Algorithm 2)      
                     //which side is v at?
                     cx = checkCW(0.5*disp.x,0.5*disp.y,xx,yy,0.,0.);
-                    if(cx== checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[GPU_idx(jj, kidx)].x,Q[GPU_idx(jj, kidx)].y))
+                    if(cx== checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[baseIdx+jj].x,Q[baseIdx+jj].y))
                         continue;
 
                     //which side will Q be at
-                    j=jj-1;
-                    if(j<0)j+=poly_size;
+                    j= jj > 0 ? jj-1 : poly_size - 1;
                     m=jj;
                     removed=0;
                     save_j=-1;
                     //see which voronoi temp points fall within the same bisector as cell v
                     for(q = poly_size-1;q >=0; q--)
                         {
-                        if(save_j == -1 && cx==checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[GPU_idx(q, kidx)].x,Q[GPU_idx(q, kidx)].y ))
+                        if(save_j == -1 && cx==checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[baseIdx+q].x,Q[baseIdx+q].y ))
+                            {
                             save_j=q;
+                            break;
+                            }
                         }
 
                     //Remove the voronoi test points on the opposite half sector from the cell v
@@ -865,7 +869,7 @@ blah3 +=1;
                     for(w=0; w<poly_size; w++)
                         {
                         q=(save_j+w)%poly_size;
-                        cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[GPU_idx(q, kidx)].x,Q[GPU_idx(q, kidx)].y);
+                        cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[baseIdx+q].x,Q[baseIdx+q].y);
                         if(cy!=cx)
                             {
                             switch(removed)
@@ -882,10 +886,10 @@ blah3 +=1;
                                 case 2:
                                     for(pp=q; pp<poly_size-1; pp++)
                                         {
-                                        Q[GPU_idx(pp,kidx)]=Q[GPU_idx(pp+1,kidx)];
-                                        P[GPU_idx(pp,kidx)]=P[GPU_idx(pp+1,kidx)];
-                                        Q_rad[GPU_idx(pp,kidx)]=Q_rad[GPU_idx(pp+1,kidx)];
-                                        P_idx[GPU_idx(pp,kidx)]=P_idx[GPU_idx(pp+1,kidx)];
+                                        Q[baseIdx+pp] = Q[baseIdx+pp+1];
+                                        P[baseIdx+pp] = P[baseIdx+pp+1];
+                                        Q_rad[baseIdx+pp] = Q_rad[baseIdx+pp+1];
+                                        P_idx[baseIdx+pp] = P_idx[baseIdx+pp+1];
                                         }
                                     poly_size--;
                                     if(j>q)j--;
@@ -915,10 +919,10 @@ blah3 +=1;
                             }
                         for(pp=poly_size-2; pp>j; pp--)
                             {
-                            Q[GPU_idx(pp+1,kidx)]=Q[GPU_idx(pp,kidx)];
-                            P[GPU_idx(pp+1,kidx)]=P[GPU_idx(pp,kidx)];
-                            Q_rad[GPU_idx(pp+1,kidx)]=Q_rad[GPU_idx(pp,kidx)];
-                            P_idx[GPU_idx(pp+1,kidx)]=P_idx[GPU_idx(pp,kidx)];
+                            Q[baseIdx+pp+1]=Q[baseIdx+pp];
+                            P[baseIdx+pp+1]=P[baseIdx+pp];
+                            Q_rad[baseIdx+pp+1]=Q_rad[baseIdx+pp];
+                            P_idx[baseIdx+pp+1]=P_idx[baseIdx+pp];
                             }
                         }
 

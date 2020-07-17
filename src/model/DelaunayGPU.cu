@@ -723,6 +723,225 @@ __global__ void gpu_voronoi_calc_global_kernel(const double2* __restrict__ d_pt,
 /*!
 device function that goes from a candidate 1-ring to an actual 1-ring
 */
+__device__ void get_oneRing_function_alternate(int kidx,
+                const double2* __restrict__ d_pt,
+                const unsigned int* __restrict__ d_cell_sizes,
+                const int* __restrict__ d_cell_idx,
+                int* __restrict__ P_idx,
+                double2* __restrict__ P,
+                double2* __restrict__ Q,
+                double* __restrict__ Q_rad,
+                int* __restrict__ d_neighnum,
+                int Ncells,
+                int xsize,
+                int ysize,
+                double boxsize,
+                periodicBoundaries &Box,
+                Index2D &ci,
+                Index2D &cli,
+                Index2D &GPU_idx,
+                int const currentMaxNeighbors,
+                int *maximumNeighborNumber
+                )
+    {
+    double2 disp, pt1, pt2, v,currentQ;// v1, v2;
+    double rr, xx, yy,currentRadius;
+    unsigned int numberInCell, newidx, aa, removed;
+    int q, pp, m, w, j, jj, cx, cy, cc, dd, cell_rad_in, cell_rad, bin, cell_x, cell_y;
+    unsigned int poly_size=d_neighnum[kidx];
+
+    v = d_pt[kidx];
+    bool flag=false;
+
+
+    int baseIdx = GPU_idx(0,kidx);
+
+    for(jj=0; jj<poly_size; jj++)
+        {
+        currentQ = Q[baseIdx+jj];
+        currentRadius = Q_rad[baseIdx+jj];
+        pt1=v+currentQ; //absolute position (within box) of circumcenter
+        //v1=P[GPU_idx(jj, kidx)];
+        //v2=P[GPU_idx((jj+1)%poly_size, kidx)];
+        Box.putInBoxReal(pt1);
+        cc = max(0,min(xsize-1,(int)floor(pt1.x/boxsize)));
+        dd = max(0,min(ysize-1,(int)floor(pt1.y/boxsize)));
+        q = ci(cc,dd);
+        //check neighbours of Q's cell inside the circumcircle
+        cc = ceil(currentRadius/boxsize);
+        cell_rad = min(cc,xsize/2);
+        cell_x = q%xsize;
+        cell_y = (q - cell_x)/ysize;
+        for (cell_rad_in = 0; cell_rad_in <= cell_rad; ++cell_rad_in)//check cell buckets in circumcircle
+        {
+        for (cc = -cell_rad_in; cc <= cell_rad_in; ++cc)//check neigh cc
+            {
+            for (dd = -cell_rad_in; dd <=cell_rad_in; ++dd)//check neigh dd
+                {
+                if(cc ==-cell_rad_in ||cc == cell_rad_in ||dd ==-cell_rad_in ||dd==cell_rad_in)
+                {
+
+                cx = positiveModulo(cell_x+dd,xsize); 
+                cy = positiveModulo(cell_y+cc,ysize); 
+
+                //if(cellBucketInsideAngle(v, cx, cy, v1, v2, boxsize, Box)==false)continue;
+
+                //check if there are any points in cellsns, if so do change, otherwise go for next bin
+                bin = ci(cx,cy);
+                numberInCell = d_cell_sizes[bin];
+
+                for (aa = 0; aa < numberInCell; ++aa)//check parts in cell
+                    {
+                    newidx = d_cell_idx[cli(aa,bin)];
+                    bool skipPoint = false;
+                    for (int pidx = 0; pidx < poly_size; ++pidx)
+                        if(newidx == P_idx[baseIdx+pidx]) skipPoint = true;
+                    if (skipPoint) continue;
+                    //6-Compute the half-plane Hv defined by the bissector of v and c, containing c
+                    //how far is the point from the circumcircle's center?
+                    rr=currentRadius*currentRadius;
+                    Box.minDist(d_pt[newidx], v, disp); //disp = vector between new point and the point we're constructing the one ring of
+                    Box.minDist(disp,currentQ,pt1); // pt1 gets overwritten by vector between new point and Pi's circumcenter
+                    if(pt1.x*pt1.x+pt1.y*pt1.y>rr)continue;
+                    //calculate half-plane bissector
+                    if(abs(disp.y)<THRESHOLD)
+                        {
+                        yy=disp.y/2+1;
+                        xx=disp.x/2;
+                        }
+                    else if(abs(disp.x)<THRESHOLD)
+                        {
+                        yy=disp.y/2;
+                        xx=disp.x/2+1;
+                        }
+                    else
+                        {
+                        yy=(disp.y*disp.y+disp.x*disp.x)/(2*disp.y);
+                        xx=0;
+                        }
+
+                    //7-Q<-Hv intersect Q
+                    //8-Update P, based on Q (Algorithm 2)      
+                    cx = checkCW(0.5*disp.x,0.5*disp.y,xx,yy,0.,0.);
+                    if(cx== checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[baseIdx+jj].x,Q[baseIdx+jj].y))
+                        continue;
+
+                    //Remove the voronoi test points on the opposite half sector from the cell v
+                    //If more than 1 voronoi test point is removed, then also adjust the delaunay neighbors of v
+                    int removeCW=0;
+                    bool removeCCW=false;
+                    bool firstRemove=true;
+                    removed=0;
+                    j=-1;
+                    //which side will Q be at
+                    cy=checkCW(0.5*disp.x,0.5*disp.y,xx,yy,Q[baseIdx+poly_size-1].x,Q[baseIdx+poly_size-1].y);
+
+                    removeCW=cy;
+                    if(cy!=cx)
+                        {
+        			    j=poly_size-1;
+		        	    removed++;
+			            removeCCW=true;
+                        }
+
+                    for(w=0; w<poly_size-1; w++)
+                        {
+                        cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[baseIdx+w].x,Q[baseIdx+w].y);
+		                if(cy!=cx)
+                            {
+                            if(removeCCW==false)
+                                {
+                                if(j<0)
+                                    j=w;
+                                else if(j>w)
+                                        j=w;
+                                removed++;
+                                removeCCW=true;
+                                }
+                            else
+                                {
+                                if(firstRemove==false)
+                                    {
+                                    for(pp=w; pp<poly_size-1; pp++)
+                                        {
+                                        Q[baseIdx+pp]=Q[baseIdx+pp+1];
+                                        P[baseIdx+pp]=P[baseIdx+pp+1];
+                                        Q_rad[baseIdx+pp]=Q_rad[baseIdx+pp+1];
+                                        P_idx[baseIdx+pp]=P_idx[baseIdx+pp+1];
+                                        }
+                                    poly_size--;
+                                    if(j>w)j--;
+                                    w--;
+                                    }
+                                else firstRemove=false;
+                                removed++;
+                                }	    
+                            }
+                        else
+                            removeCCW=false;
+                        }
+                    if(removeCW!=cx && removeCCW==true && firstRemove==false)
+                        {
+                        poly_size--;
+                        if(j>w)j--;
+                        }
+
+                    if(removed==0)
+                        continue;
+                    //Introduce new (if it exists) delaunay neighbor and new voronoi points
+                    if(removed>1)
+                        m=(j+2)%poly_size;
+                    else 
+                        m=(j+1)%poly_size;
+                    Circumcircle(P[baseIdx+j], disp, pt1, xx);
+                    Circumcircle(disp, P[baseIdx+m], pt2, yy);
+                    if(removed==1)
+                        {
+                        poly_size++;
+                        for(pp=poly_size-2; pp>j; pp--)
+                            {
+                            Q[baseIdx+pp+1]=Q[baseIdx+pp];
+                            P[baseIdx+pp+1]=P[baseIdx+pp];
+                            Q_rad[baseIdx+pp+1]=Q_rad[baseIdx+pp];
+                            P_idx[baseIdx+pp+1]=P_idx[baseIdx+pp];
+                            }
+                        }
+                    m=(j+1)%poly_size;
+                    Q[baseIdx+m]=pt2;
+                    Q_rad[baseIdx+m]=yy;
+                    P[baseIdx+m]=disp;
+                    P_idx[baseIdx+m]=newidx;
+
+                    Q[baseIdx+j]=pt1;
+                    Q_rad[baseIdx+j]=xx;
+                    flag=true;
+                    break;
+                    }//end checking all points in the current cell list cell
+                if(flag==true)
+                    break;
+                }//end if spiral check
+                }//end cell neighbor check, dd
+            if(flag==true)
+                break;
+            }//end cell neighbor check, cc
+        if(flag==true)
+            break;   
+        }//end cell neighbor check, cell_rad_in
+        if(flag==true)
+            {
+            jj--;
+            flag=false;
+            }
+        }//end iterative loop over all edges of the 1-ring
+
+    d_neighnum[kidx]=poly_size;
+
+    return;
+    }
+
+/*!
+device function that goes from a candidate 1-ring to an actual 1-ring
+*/
 __device__ void get_oneRing_function(int kidx,
                 const double2* __restrict__ d_pt,
                 const unsigned int* __restrict__ d_cell_sizes,
@@ -998,7 +1217,8 @@ __global__ void gpu_get_neighbors_kernel(const double2* __restrict__ d_pt,
     unsigned int kidx=d_fixlist[tidx];
     if (kidx >= Ncells)return;
 
-    get_oneRing_function(kidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+    get_oneRing_function_alternate(kidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+    //get_oneRing_function(kidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
 
     return;
     }//end function

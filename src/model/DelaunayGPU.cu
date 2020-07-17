@@ -765,7 +765,6 @@ int maxCellsChecked=0;
         {
 counter+=1;
         ii=GPU_idx(jj, kidx);
-        iii=GPU_idx((jj+1)%poly_size, kidx);
         pt1=v+Q[ii]; //absolute position (within box) of circumcenter
         v1=P[GPU_idx(jj, kidx)];
         v2=P[GPU_idx((jj+1)%poly_size,kidx)];
@@ -810,8 +809,14 @@ maxCellsChecked  = max(maxCellsChecked,cell_rad_in*cell_rad_in);
                     {
 blah +=1;
                     newidx = d_cell_idx[cli(aa,bin)];
+                    //skip any newidx's that are already part of the 1-ring
+                    if(newidx == kidx) continue;
+                    bool skipPoint = false;
+                    for (int pidx = 0; pidx < poly_size; ++pidx)
+                        if(newidx == P_idx[GPU_idx(pidx, kidx)]) skipPoint = true;
+                    if (skipPoint) continue;
+
                     //6-Compute the half-plane Hv defined by the bissector of v and c, containing c
-                    if(newidx==P_idx[ii] || newidx==P_idx[iii] || newidx==kidx)continue;
 blah2+=1;
                     //how far is the point from the circumcircle's center?
                     //rr=Q_rad[ii]*Q_rad[ii];
@@ -841,6 +846,9 @@ blah3 +=1;
                     //8-Update P, based on Q (Algorithm 2)      
                     //which side is v at?
                     cx = checkCW(0.5*disp.x,0.5*disp.y,xx,yy,0.,0.);
+                    if(cx== checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[GPU_idx(jj, kidx)].x,Q[GPU_idx(jj, kidx)].y))
+                        continue;
+
                     //which side will Q be at
                     j=jj-1;
                     if(j<0)j+=poly_size;
@@ -848,27 +856,14 @@ blah3 +=1;
                     removed=0;
                     save_j=-1;
                     //see which voronoi temp points fall within the same bisector as cell v
-                    //for(pp=0; pp<poly_size; pp++)
-                      //  {
-                        //q=jj-pp;
                     for(q = poly_size-1;q >=0; q--)
                         {
-                        //if(q<0)
-                        //    q+=poly_size;
-
                         cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[GPU_idx(q, kidx)].x,Q[GPU_idx(q, kidx)].y );
-
                         save=(q+1)%poly_size;
-                        if(newidx==P_idx[GPU_idx(q, kidx)] || newidx==P_idx[GPU_idx(save,kidx)])
-                            cy=cx+1;
-
                         Hv[q]=cy;
                         if(cy==cx && save_j==-1)
                             save_j=q;
-
                         }
-                    if(Hv[jj]==cx)
-                        continue;
 
                     //Remove the voronoi test points on the opposite half sector from the cell v
                     //If more than 1 voronoi test point is removed, then also adjust the delaunay neighbors of v

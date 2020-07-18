@@ -169,21 +169,8 @@ int main(int argc, char*argv[])
 
 
     vector<int> ns;
-    ns.push_back(100);
-    ns.push_back(200);
-    ns.push_back(400);
-    ns.push_back(800);
-    ns.push_back(1600);
-    ns.push_back(3200);
-    ns.push_back(6400);
-    ns.push_back(12800);
-    ns.push_back(25000);
-    ns.push_back(50000);
-    ns.push_back(100000);
-    ns.push_back(200000);
-    ns.push_back(400000);
-    ns.push_back(800000);
-    ns.push_back(1600000);
+    for (int p2 = 7; p2 < 22; ++p2)
+        ns.push_back(pow(2,p2));
     time_t now = time(0);
     tm *ltm = localtime(&now);
     char fname[256];

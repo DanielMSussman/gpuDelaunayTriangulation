@@ -867,12 +867,13 @@ __device__ void get_oneRing_function_alternate(int kidx,
                                 if(firstRemove==false)
                                     {
                                     for(pp=w; pp<poly_size-1; pp++)
-                                        {
                                         Q[baseIdx+pp]=Q[baseIdx+pp+1];
+                                    for(pp=w; pp<poly_size-1; pp++)
                                         P[baseIdx+pp]=P[baseIdx+pp+1];
+                                    for(pp=w; pp<poly_size-1; pp++)
                                         Q_rad[baseIdx+pp]=Q_rad[baseIdx+pp+1];
+                                    for(pp=w; pp<poly_size-1; pp++)
                                         P_idx[baseIdx+pp]=P_idx[baseIdx+pp+1];
-                                        }
                                     poly_size--;
                                     if(j>w)
                                         j--;
@@ -904,12 +905,13 @@ __device__ void get_oneRing_function_alternate(int kidx,
                         {
                         poly_size++;
                         for(pp=poly_size-2; pp>j; pp--)
-                            {
                             Q[baseIdx+pp+1]=Q[baseIdx+pp];
+                        for(pp=poly_size-2; pp>j; pp--)
                             P[baseIdx+pp+1]=P[baseIdx+pp];
+                        for(pp=poly_size-2; pp>j; pp--)
                             Q_rad[baseIdx+pp+1]=Q_rad[baseIdx+pp];
+                        for(pp=poly_size-2; pp>j; pp--)
                             P_idx[baseIdx+pp+1]=P_idx[baseIdx+pp];
-                            }
                         }
                     m=(j+1)%poly_size;
                     Q[baseIdx+m]=pt2;

@@ -14,6 +14,8 @@
     @{
 */
 
+#define THREADCOUNT 128
+
 
 __device__ inline double checkCCW(const double2 pa, const double2 pb, const double2 pc)
     {
@@ -755,6 +757,10 @@ __device__ void get_oneRing_function_alternate(int kidx,
     v = d_pt[kidx];
     bool flag=false;
 
+    __shared__ double2 sd2[THREADCOUNT];
+    __shared__ double sd[THREADCOUNT];
+    __shared__ int si[THREADCOUNT];
+
     int baseIdx = GPU_idx(0,kidx);
     for(jj=0; jj<poly_size; jj++)
         {
@@ -866,14 +872,31 @@ __device__ void get_oneRing_function_alternate(int kidx,
                                 {
                                 if(firstRemove==false)
                                     {
+                                    //if(kidx ==127 ) printf("FR kidx %i shifting poly by %i\n",kidx,poly_size-1-w);
                                     for(pp=w; pp<poly_size-1; pp++)
-                                        Q[baseIdx+pp]=Q[baseIdx+pp+1];
+                                        {
+                                        sd2[threadIdx.x] = Q[baseIdx+pp+1];
+                                        Q[baseIdx+pp] = sd2[threadIdx.x];
+                                        //Q[baseIdx+pp]=Q[baseIdx+pp+1];
+                                        }
                                     for(pp=w; pp<poly_size-1; pp++)
-                                        P[baseIdx+pp]=P[baseIdx+pp+1];
+                                        {
+                                        sd2[threadIdx.x] = P[baseIdx+pp+1];
+                                        P[baseIdx+pp ] = sd2[threadIdx.x];
+                                        //P[baseIdx+pp]=P[baseIdx+pp+1];
+                                        }
                                     for(pp=w; pp<poly_size-1; pp++)
-                                        Q_rad[baseIdx+pp]=Q_rad[baseIdx+pp+1];
+                                        {
+                                        sd[threadIdx.x] = Q_rad[baseIdx+pp+1];
+                                        Q_rad[baseIdx+pp] = sd[threadIdx.x];
+                                        //Q_rad[baseIdx+pp]=Q_rad[baseIdx+pp+1];
+                                        }
                                     for(pp=w; pp<poly_size-1; pp++)
-                                        P_idx[baseIdx+pp]=P_idx[baseIdx+pp+1];
+                                        {
+                                        si[threadIdx.x] = P_idx[baseIdx+pp+1];
+                                        P_idx[baseIdx+pp ] = si[threadIdx.x];
+                                        //P_idx[baseIdx+pp]=P_idx[baseIdx+pp+1];
+                                        }
                                     poly_size--;
                                     if(j>w)
                                         j--;
@@ -903,15 +926,40 @@ __device__ void get_oneRing_function_alternate(int kidx,
                     Circumcircle(disp, P[baseIdx+m], pt2, yy);
                     if(removed==1)
                         {
+                        //if(kidx ==18 ) printf("kidx %i shifting poly by %i\n",kidx,poly_size-1-j);
                         poly_size++;
                         for(pp=poly_size-2; pp>j; pp--)
-                            Q[baseIdx+pp+1]=Q[baseIdx+pp];
+                            {
+                            sd2[threadIdx.x] = Q[baseIdx+pp];
+                            Q[baseIdx+pp+1] = sd2[threadIdx.x];
+                        //    testDouble2 = Q[baseIdx+pp];
+                          //  Q[baseIdx+pp+1]=testDouble2;
+                            //Q[baseIdx+pp];
+                            }
                         for(pp=poly_size-2; pp>j; pp--)
-                            P[baseIdx+pp+1]=P[baseIdx+pp];
+                            {
+                            si[threadIdx.x] = P_idx[baseIdx+pp];
+                            P_idx[baseIdx+pp+1] = si[threadIdx.x];
+                            //testInt = P_idx[baseIdx+pp];
+                            //P_idx[baseIdx+pp+1]=testInt;
+                            //P_idx[baseIdx+pp];
+                            }
                         for(pp=poly_size-2; pp>j; pp--)
-                            Q_rad[baseIdx+pp+1]=Q_rad[baseIdx+pp];
+                            {
+                            sd2[threadIdx.x] = P[baseIdx+pp];
+                            P[baseIdx+pp+1] = sd2[threadIdx.x];
+                            //testDouble2 = P[baseIdx+pp];
+                            //P[baseIdx+pp+1]=testDouble2;
+                            //P[baseIdx+pp];
+                            }
                         for(pp=poly_size-2; pp>j; pp--)
-                            P_idx[baseIdx+pp+1]=P_idx[baseIdx+pp];
+                            {
+                            sd[threadIdx.x] = Q_rad[baseIdx+pp];
+                            Q_rad[baseIdx+pp+1] = sd[threadIdx.x];
+                            //testDouble = Q_rad[baseIdx+pp];
+                            //Q_rad[baseIdx+pp+1]=testDouble;
+                            //Q_rad[baseIdx+pp];
+                            }
                         }
                     m=(j+1)%poly_size;
                     Q[baseIdx+m]=pt2;
@@ -1320,8 +1368,8 @@ bool gpu_voronoi_calc_no_sort(double2* d_pt,
                       Index2D GPU_idx
                       )
     {
-    unsigned int block_size = 128;
-    if (Ncells < 128) block_size = 32;
+    unsigned int block_size = THREADCOUNT;
+    if (Ncells < THREADCOUNT) block_size = 32;
     unsigned int nblocks  = Ncells/block_size + 1;
     gpu_voronoi_calc_no_sort_kernel<<<nblocks,block_size>>>(
                         d_pt,
@@ -1370,8 +1418,8 @@ bool gpu_voronoi_calc(double2* d_pt,
                 bool globalRoutine
                 )
 {
-        unsigned int block_size = 128;
-        if (Nf < 128) block_size = 32;
+        unsigned int block_size = THREADCOUNT;
+        if (Nf < THREADCOUNT) block_size = 32;
         unsigned int nblocks  = Nf/block_size + 1;
 
         if(globalRoutine)
@@ -1444,8 +1492,8 @@ bool gpu_get_neighbors_no_sort(double2* d_pt, //the point set
                 int currentMaxNeighborNum
                 )
     {
-    unsigned int block_size = 128;
-    if (Ncells < 128) block_size = 32;
+    unsigned int block_size = THREADCOUNT;
+    if (Ncells < THREADCOUNT) block_size = 32;
     unsigned int nblocks  = Ncells/block_size + 1;
     gpu_get_neighbors_no_sort_kernel<<<nblocks,block_size>>>(
                       d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,Ncells,xsize,ysize,
@@ -1481,9 +1529,9 @@ bool gpu_get_neighbors(double2* d_pt, //the point set
                 int currentMaxNeighborNum,
                 bool globalRoutine
                 )
-{
-        unsigned int block_size = 128;
-    if (Nf < 128) block_size = 32;
+    {
+    unsigned int block_size = 64;
+    if (Nf < 64) block_size = 32;
     unsigned int nblocks  = Nf/block_size + 1;
 
     /*
@@ -1520,8 +1568,8 @@ bool gpu_build_repair(int* d_repair,
                  int* Nf
                  )
     {
-    unsigned int block_size = 128;
-    if (Np < 128) block_size = 32;
+    unsigned int block_size = THREADCOUNT;
+    if (Np < THREADCOUNT) block_size = 32;
     unsigned int nblocks  = Np/block_size + 1;
 
     unsigned int N=Np+1;
@@ -1556,8 +1604,8 @@ bool gpu_test_circumcenters(int *d_repair,
                             Index2D &cli
                             )
     {
-    unsigned int block_size = 128;
-    if (Nccs < 128) block_size = 32;
+    unsigned int block_size = THREADCOUNT;
+    if (Nccs < THREADCOUNT) block_size = 32;
     unsigned int nblocks  = Nccs/block_size + 1;
 
     gpu_test_circumcenters_kernel<<<nblocks,block_size>>>(

@@ -757,9 +757,9 @@ __device__ void get_oneRing_function_alternate(int kidx,
     v = d_pt[kidx];
     bool flag=false;
 
-    __shared__ double2 sd2[THREADCOUNT];
-    __shared__ double sd[THREADCOUNT];
-    __shared__ int si[THREADCOUNT];
+    //__shared__ double2 sd2[THREADCOUNT];
+    //__shared__ double sd[THREADCOUNT];
+    //__shared__ int si[THREADCOUNT];
 
     int baseIdx = GPU_idx(0,kidx);
     for(jj=0; jj<poly_size; jj++)
@@ -875,27 +875,27 @@ __device__ void get_oneRing_function_alternate(int kidx,
                                     //if(kidx ==127 ) printf("FR kidx %i shifting poly by %i\n",kidx,poly_size-1-w);
                                     for(pp=w; pp<poly_size-1; pp++)
                                         {
-                                        sd2[threadIdx.x] = Q[baseIdx+pp+1];
-                                        Q[baseIdx+pp] = sd2[threadIdx.x];
-                                        //Q[baseIdx+pp]=Q[baseIdx+pp+1];
+                                        //sd2[threadIdx.x] = Q[baseIdx+pp+1];
+                                        //Q[baseIdx+pp] = sd2[threadIdx.x];
+                                        Q[baseIdx+pp]=Q[baseIdx+pp+1];
                                         }
                                     for(pp=w; pp<poly_size-1; pp++)
                                         {
-                                        sd2[threadIdx.x] = P[baseIdx+pp+1];
-                                        P[baseIdx+pp ] = sd2[threadIdx.x];
-                                        //P[baseIdx+pp]=P[baseIdx+pp+1];
+                                        //sd2[threadIdx.x] = P[baseIdx+pp+1];
+                                        //P[baseIdx+pp ] = sd2[threadIdx.x];
+                                        P[baseIdx+pp]=P[baseIdx+pp+1];
                                         }
                                     for(pp=w; pp<poly_size-1; pp++)
                                         {
-                                        sd[threadIdx.x] = Q_rad[baseIdx+pp+1];
-                                        Q_rad[baseIdx+pp] = sd[threadIdx.x];
-                                        //Q_rad[baseIdx+pp]=Q_rad[baseIdx+pp+1];
+                                        //sd[threadIdx.x] = Q_rad[baseIdx+pp+1];
+                                        //Q_rad[baseIdx+pp] = sd[threadIdx.x];
+                                        Q_rad[baseIdx+pp]=Q_rad[baseIdx+pp+1];
                                         }
                                     for(pp=w; pp<poly_size-1; pp++)
                                         {
-                                        si[threadIdx.x] = P_idx[baseIdx+pp+1];
-                                        P_idx[baseIdx+pp ] = si[threadIdx.x];
-                                        //P_idx[baseIdx+pp]=P_idx[baseIdx+pp+1];
+                                        //si[threadIdx.x] = P_idx[baseIdx+pp+1];
+                                        //P_idx[baseIdx+pp ] = si[threadIdx.x];
+                                        P_idx[baseIdx+pp]=P_idx[baseIdx+pp+1];
                                         }
                                     poly_size--;
                                     if(j>w)
@@ -930,35 +930,27 @@ __device__ void get_oneRing_function_alternate(int kidx,
                         poly_size++;
                         for(pp=poly_size-2; pp>j; pp--)
                             {
-                            sd2[threadIdx.x] = Q[baseIdx+pp];
-                            Q[baseIdx+pp+1] = sd2[threadIdx.x];
-                        //    testDouble2 = Q[baseIdx+pp];
-                          //  Q[baseIdx+pp+1]=testDouble2;
-                            //Q[baseIdx+pp];
+                            //sd2[threadIdx.x] = Q[baseIdx+pp];
+                            //Q[baseIdx+pp+1] = sd2[threadIdx.x];
+                            Q[baseIdx+pp+1]=Q[baseIdx+pp];
                             }
                         for(pp=poly_size-2; pp>j; pp--)
                             {
-                            si[threadIdx.x] = P_idx[baseIdx+pp];
-                            P_idx[baseIdx+pp+1] = si[threadIdx.x];
-                            //testInt = P_idx[baseIdx+pp];
-                            //P_idx[baseIdx+pp+1]=testInt;
-                            //P_idx[baseIdx+pp];
+                            //si[threadIdx.x] = P_idx[baseIdx+pp];
+                            //P_idx[baseIdx+pp+1] = si[threadIdx.x];
+                            P_idx[baseIdx+pp+1]=P_idx[baseIdx+pp];
                             }
                         for(pp=poly_size-2; pp>j; pp--)
                             {
-                            sd2[threadIdx.x] = P[baseIdx+pp];
-                            P[baseIdx+pp+1] = sd2[threadIdx.x];
-                            //testDouble2 = P[baseIdx+pp];
-                            //P[baseIdx+pp+1]=testDouble2;
-                            //P[baseIdx+pp];
+                            //sd2[threadIdx.x] = P[baseIdx+pp];
+                            //P[baseIdx+pp+1] = sd2[threadIdx.x];
+                            P[baseIdx+pp+1]=P[baseIdx+pp];
                             }
                         for(pp=poly_size-2; pp>j; pp--)
                             {
-                            sd[threadIdx.x] = Q_rad[baseIdx+pp];
-                            Q_rad[baseIdx+pp+1] = sd[threadIdx.x];
-                            //testDouble = Q_rad[baseIdx+pp];
-                            //Q_rad[baseIdx+pp+1]=testDouble;
-                            //Q_rad[baseIdx+pp];
+                            //sd[threadIdx.x] = Q_rad[baseIdx+pp];
+                            //Q_rad[baseIdx+pp+1] = sd[threadIdx.x];
+                            Q_rad[baseIdx+pp+1]=Q_rad[baseIdx+pp];
                             }
                         }
                     m=(j+1)%poly_size;

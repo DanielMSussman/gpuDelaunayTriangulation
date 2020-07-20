@@ -294,19 +294,6 @@ else if (programSwitch == -1)
     ArrayHandle<int> t(gpuTriangulation,access_location::device,access_mode::readwrite);
     ArrayHandle<int> c(cellNeighborNumber,access_location::device,access_mode::readwrite);
     }
-    /*
-    mProf.start("initial global triangulation");
-    delGPU.GPU_GlobalDelTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
-    mProf.end("initial global triangulation");
-    mProf.start("second global triangulation");
-    delGPU.GPU_GlobalDelTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
-    mProf.end("second global triangulation");
-    mProf.start("third global triangulation");
-    delGPU.cListUpdated=false;
-    delGPU.GPU_GlobalDelTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
-    mProf.end("third global triangulation");
-    printf("Initial global triangulation done\n");
-    */
     printf("randomly repairing %i points (out of %i) %i times\n",localNumber,N,maximumIterations);
     for (int iteration = 0; iteration<maximumIterations; ++iteration)
         {
@@ -332,8 +319,12 @@ else if (programSwitch == -1)
         cudaProfilerStart();
             mProf.start("delGPU cellList");
             delGPU.updateList(gpuPts);
+cudaDeviceSynchronize();
             mProf.end("delGPU cellList");
+        mProf.start("delGPU localRepair only");
         delGPU.locallyRepairDelaunayTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber,setRep,localNumber);
+cudaDeviceSynchronize();
+        mProf.end("delGPU localRepair only");
         cudaProfilerStop();
         mProf.end("delGPU local triangulation");
         }

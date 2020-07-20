@@ -14,6 +14,7 @@ set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --expt-relaxed-constexpr
                                         -gencode=arch=compute_30,code=sm_30
                                         -gencode=arch=compute_50,code=sm_50
                                         -gencode=arch=compute_52,code=sm_52
+                                        -Wno-deprecated-gpu-targets
                                         ")
                                         #")#-gencode arch=compute_30,code=sm_30 -Wno-deprecated-gpu-targets ")#-Xptxas -O3 -Xcompiler -O3")
 

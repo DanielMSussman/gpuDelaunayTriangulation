@@ -340,51 +340,6 @@ else if (programSwitch == -1)
     cout << endl;
     mProf.print();
     }
-else
-    {
-    vector<int> repairList(N);
-    for(int ii = 0; ii < N; ++ii)
-        repairList[ii]=ii;
-    int localNumber = floor(localFraction*N);
-    printf("randomly repairing %i points (out of %i) %i times\n",localNumber,N,maximumIterations);
-    noise.fillArray(gpuPts,0,L);
-    DelaunayGPU delGPU(N, maxNeighs, cellSize, domain);
-    delGPU.setSafetyMode(safetyMode);
-    GPUArray<int> gpuTriangulation((unsigned int) (maxNeighs)*N);
-    GPUArray<int> cellNeighborNumber((unsigned int) N);
-    delGPU.GPU_GlobalDelTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
-    printf("Initial global triangulation done\n");
-
-    for (int iteration = 0; iteration<=maximumIterations; ++iteration)
-        {
-    
-        GPUArray<double2> randomDisplacement((unsigned int) N);
-        noise.fillArray(randomDisplacement,-localFraction,localFraction);
-        gpu_add_gpuarray<double2>(gpuPts,randomDisplacement,N);
-
-        {
-        ArrayHandle<double2> p(gpuPts);
-        for(int ii = 0; ii < N; ++ii)
-            {
-            delGPU.Box->putInBoxReal(p.data[ii]);
-            };
-        }
-        {
-        ArrayHandle<double2> p(gpuPts,access_location::device,access_mode::readwrite);
-        }
-
-
-
-        mProf.start("delGPU local triangulation");
-        cudaProfilerStart();
-        delGPU.getCircumcenters(gpuTriangulation,cellNeighborNumber);
-        delGPU.GPU_LocalDelTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
-        cudaProfilerStop();
-        mProf.end("delGPU local triangulation");
-        }
-    cout << endl;
-    mProf.print();
-    }
 
 //The end of the tclap try
 //

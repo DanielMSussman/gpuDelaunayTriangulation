@@ -6,7 +6,6 @@
 #include <iostream>
 #include <stdio.h>
 #include "DelaunayGPU.cuh"
-#include <thrust/sort.h>
 
 /*! \file DelaunayGPU.cu */
 /*!
@@ -157,106 +156,6 @@ __device__ inline void rotateInMemoryRight<int,4>( int *inList, int saveIdx, int
     inList[saveIdx+rotationSize+rotationOffset+1] = temp.w;
     };
 
-template<>
-__device__ inline void rotateInMemoryRight<double,5>(double *inList, int saveIdx, int rotationOffset,int rotationSize)
-    {
-    double4 temp;
-    double t2;
-    t2 = inList[saveIdx+rotationSize+rotationOffset-4];
-    temp.x = inList[saveIdx+rotationSize+rotationOffset-3];
-    temp.y = inList[saveIdx+rotationSize+rotationOffset-2];
-    temp.z = inList[saveIdx+rotationSize+rotationOffset-1];
-    temp.w = inList[saveIdx+rotationSize+rotationOffset];
-    inList[saveIdx+rotationSize+rotationOffset-3] = t2;
-    inList[saveIdx+rotationSize+rotationOffset-2] = temp.x;
-    inList[saveIdx+rotationSize+rotationOffset-1] = temp.y;
-    inList[saveIdx+rotationSize+rotationOffset] = temp.z;
-    inList[saveIdx+rotationSize+rotationOffset+1] = temp.w;
-    };
-template<>
-__device__ inline void rotateInMemoryRight<double,6>( double *inList, int saveIdx, int rotationOffset,int rotationSize)
-    {
-    double4 temp;
-    double2 t2;
-    t2.x = inList[saveIdx+rotationSize+rotationOffset-5];
-    t2.y = inList[saveIdx+rotationSize+rotationOffset-4];
-    temp.x = inList[saveIdx+rotationSize+rotationOffset-3];
-    temp.y = inList[saveIdx+rotationSize+rotationOffset-2];
-    temp.z = inList[saveIdx+rotationSize+rotationOffset-1];
-    temp.w = inList[saveIdx+rotationSize+rotationOffset];
-    inList[saveIdx+rotationSize+rotationOffset-4] = t2.x;
-    inList[saveIdx+rotationSize+rotationOffset-3] = t2.y;
-    inList[saveIdx+rotationSize+rotationOffset-2] = temp.x;
-    inList[saveIdx+rotationSize+rotationOffset-1] = temp.y;
-    inList[saveIdx+rotationSize+rotationOffset] = temp.z;
-    inList[saveIdx+rotationSize+rotationOffset+1] = temp.w;
-    };
-template<>
-__device__ inline void rotateInMemoryRight<int,5>(int *inList, int saveIdx, int rotationOffset,int rotationSize)
-    {
-    int4 temp;
-    int t2;
-    t2 = inList[saveIdx+rotationSize+rotationOffset-4];
-    temp.x = inList[saveIdx+rotationSize+rotationOffset-3];
-    temp.y = inList[saveIdx+rotationSize+rotationOffset-2];
-    temp.z = inList[saveIdx+rotationSize+rotationOffset-1];
-    temp.w = inList[saveIdx+rotationSize+rotationOffset];
-    inList[saveIdx+rotationSize+rotationOffset-3] = t2;
-    inList[saveIdx+rotationSize+rotationOffset-2] = temp.x;
-    inList[saveIdx+rotationSize+rotationOffset-1] = temp.y;
-    inList[saveIdx+rotationSize+rotationOffset] = temp.z;
-    inList[saveIdx+rotationSize+rotationOffset+1] = temp.w;
-    };
-template<>
-__device__ inline void rotateInMemoryRight<int,6>( int *inList, int saveIdx, int rotationOffset,int rotationSize)
-    {
-    int4 temp;
-    int2 t2;
-    t2.x = inList[saveIdx+rotationSize+rotationOffset-5];
-    t2.y = inList[saveIdx+rotationSize+rotationOffset-4];
-    temp.x = inList[saveIdx+rotationSize+rotationOffset-3];
-    temp.y = inList[saveIdx+rotationSize+rotationOffset-2];
-    temp.z = inList[saveIdx+rotationSize+rotationOffset-1];
-    temp.w = inList[saveIdx+rotationSize+rotationOffset];
-    inList[saveIdx+rotationSize+rotationOffset-4] = t2.x;
-    inList[saveIdx+rotationSize+rotationOffset-3] = t2.y;
-    inList[saveIdx+rotationSize+rotationOffset-2] = temp.x;
-    inList[saveIdx+rotationSize+rotationOffset-1] = temp.y;
-    inList[saveIdx+rotationSize+rotationOffset] = temp.z;
-    inList[saveIdx+rotationSize+rotationOffset+1] = temp.w;
-    };
-template<>
-__device__ inline void rotateInMemoryRight<double2,5>( double2 *inList, int saveIdx, int rotationOffset,int rotationSize)
-    {
-    double2 temp1,temp2,temp3,temp4,temp5;
-    temp1 = inList[saveIdx+rotationSize+rotationOffset-4];
-    temp2 = inList[saveIdx+rotationSize+rotationOffset-3];
-    temp3 = inList[saveIdx+rotationSize+rotationOffset-2];
-    temp4 = inList[saveIdx+rotationSize+rotationOffset-1];
-    temp5 = inList[saveIdx+rotationSize+rotationOffset];
-    inList[saveIdx+rotationSize+rotationOffset-3] = temp1;
-    inList[saveIdx+rotationSize+rotationOffset-2] = temp2;
-    inList[saveIdx+rotationSize+rotationOffset-1] = temp3;
-    inList[saveIdx+rotationSize+rotationOffset] = temp4;
-    inList[saveIdx+rotationSize+rotationOffset+1] = temp5;
-    };
-template<>
-__device__ inline void rotateInMemoryRight<double2,6>( double2 *inList, int saveIdx, int rotationOffset,int rotationSize)
-    {
-    double2 temp1,temp2,temp3,temp4,temp5,temp6;
-    temp1 = inList[saveIdx+rotationSize+rotationOffset-5];
-    temp2 = inList[saveIdx+rotationSize+rotationOffset-4];
-    temp3 = inList[saveIdx+rotationSize+rotationOffset-3];
-    temp4 = inList[saveIdx+rotationSize+rotationOffset-2];
-    temp5 = inList[saveIdx+rotationSize+rotationOffset-1];
-    temp6 = inList[saveIdx+rotationSize+rotationOffset];
-    inList[saveIdx+rotationSize+rotationOffset-4] = temp1;
-    inList[saveIdx+rotationSize+rotationOffset-3] = temp2;
-    inList[saveIdx+rotationSize+rotationOffset-2] = temp3;
-    inList[saveIdx+rotationSize+rotationOffset-1] = temp4;
-    inList[saveIdx+rotationSize+rotationOffset] = temp5;
-    inList[saveIdx+rotationSize+rotationOffset+1] = temp6;
-    };
 /*
 __device__ inline void rotateInMemoryRight<2>( int *intList, int saveIdx, int loadIdxOffset, int rotationSize)
     {
@@ -375,23 +274,6 @@ __global__ void gpu_test_circumcenters_kernel(int* __restrict__ d_repair,
 
     return;
     };
-
-//Gives back the number of points that need to be re-triangulated
-__global__ void gpu_size_kernel(
-                                    int* __restrict__ d_repair,
-                                    int Np,
-                                    int* __restrict__ Nf
-                                    )
-    {
-      unsigned int kidx = blockDim.x * blockIdx.x + threadIdx.x;
-      if (kidx >= Np)
-        return;
-
-      int val1=d_repair[kidx];
-      int val2=d_repair[kidx+1];
-      if(val1<Np && val2==Np)Nf[0]=kidx+1;
-    }
-
 
 /*!
 device function carries out the task of finding a good enclosing polygon, using the virtual point and half-plane intersection method
@@ -918,39 +800,6 @@ GPU implementatio of the DT. It makes use of a locallity lema described in (doi:
 //Currently it only uses 4 points, one in each quadrant.
 //The initial test voronoi cell needs to be valid for the algorithm to work.
 //Thus if the search fails, 4 virtual points are used at maximum distance as the starting polygon
-__global__ void gpu_voronoi_calc_kernel(const double2* __restrict__ d_pt,
-                                              const unsigned int* __restrict__ d_cell_sizes,
-                                              const int* __restrict__ d_cell_idx,
-                                              int* __restrict__ P_idx,
-                                              double2* __restrict__ P,
-                                              double2* __restrict__ Q,
-                                              double* __restrict__ Q_rad,
-                                              int* __restrict__ d_neighnum,
-                                              int Ncells,
-                                              int xsize,
-                                              int ysize,
-                                              double boxsize,
-                                              periodicBoundaries Box,
-                                              Index2D ci,
-                                              Index2D cli,
-                                              const int* __restrict__ d_fixlist,
-                                              int Nf,
-                                              Index2D GPU_idx
-                                              )
-    {
-    unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
-    if (tidx >= Nf)return;
-    unsigned int kidx=d_fixlist[tidx];
-
-   virtual_voronoi_calc_function(kidx,d_pt,d_cell_sizes,d_cell_idx,
-                          P_idx, P, Q, Q_rad,
-                          d_neighnum,
-                          Ncells, xsize,ysize, boxsize,Box,
-                          ci,cli,GPU_idx);
-    return;
-    }
-
-//!Global voro calc kernel does not need a fixlist
 __global__ void gpu_voronoi_calc_global_kernel(const double2* __restrict__ d_pt,
                                               const unsigned int* __restrict__ d_cell_sizes,
                                               const int* __restrict__ d_cell_idx,
@@ -983,7 +832,7 @@ __global__ void gpu_voronoi_calc_global_kernel(const double2* __restrict__ d_pt,
 /*!
 device function that goes from a candidate 1-ring to an actual 1-ring
 */
-__device__ void get_oneRing_function_alternate(int kidx,
+__device__ void get_oneRing_function(int kidx,
                 const double2* __restrict__ d_pt,
                 const unsigned int* __restrict__ d_cell_sizes,
                 const int* __restrict__ d_cell_idx,
@@ -1215,18 +1064,6 @@ __device__ void get_oneRing_function_alternate(int kidx,
                                 rotateInMemoryRight<double,4>(Q_rad,baseIdx,j,rotationSize);
                                 rotateInMemoryRight<int, 4>(P_idx,baseIdx,j,rotationSize);
                                 break;
-                            case 5:
-                                rotateInMemoryRight<double2, 5>(Q,baseIdx,j,rotationSize);
-                                rotateInMemoryRight<double2, 5>(P,baseIdx,j,rotationSize);
-                                rotateInMemoryRight<double,5>(Q_rad,baseIdx,j,rotationSize);
-                                rotateInMemoryRight<int, 5>(P_idx,baseIdx,j,rotationSize);
-                                break;
-                            case 6:
-                                rotateInMemoryRight<double2, 6>(Q,baseIdx,j,rotationSize);
-                                rotateInMemoryRight<double2, 6>(P,baseIdx,j,rotationSize);
-                                rotateInMemoryRight<double,6>(Q_rad,baseIdx,j,rotationSize);
-                                rotateInMemoryRight<int, 6>(P_idx,baseIdx,j,rotationSize);
-                                break;
                             default:
                                 rotateInMemoryRight(Q,baseIdx,j,rotationSize);
                                 rotateInMemoryRight(P,baseIdx,j,rotationSize);
@@ -1293,290 +1130,6 @@ __device__ void get_oneRing_function_alternate(int kidx,
     return;
     }//end function
 
-/*!
-  device function that goes from a candidate 1-ring to an actual 1-ring
- */
-__device__ void get_oneRing_function(int kidx,
-                const double2* __restrict__ d_pt,
-                const unsigned int* __restrict__ d_cell_sizes,
-                const int* __restrict__ d_cell_idx,
-                int* __restrict__ P_idx,
-                double2* __restrict__ P,
-                double2* __restrict__ Q,
-                double* __restrict__ Q_rad,
-                int* __restrict__ d_neighnum,
-                int Ncells,
-                int xsize,
-                int ysize,
-                double boxsize,
-                periodicBoundaries &Box,
-                Index2D &ci,
-                Index2D &cli,
-                Index2D &GPU_idx,
-                int const currentMaxNeighbors,
-                int *maximumNeighborNumber
-                )
-{
-        double2 disp, pt1, pt2, v,currentQ;
-        //    double2 v1,v2;
-        double rr, xx, yy,currentRadius;
-        unsigned int numberInCell, newidx, aa, removed;
-        int q, pp, m, w, j, jj, cx, cy, save_j, cc, dd, cell_rad_in, bin, cell_x, cell_y;
-        unsigned int poly_size=d_neighnum[kidx];
-
-        v = d_pt[kidx];
-        bool flag=false;
-
-#ifdef DEBUGFLAGUP
-        int blah = 0;
-        int blah2 = 0;
-        int blah3=0;
-        int maxCellsChecked=0;
-        int spotcheck=18;
-        int counter= 0 ;
-        if(kidx==spotcheck) printf("VP initial poly_size = %i\n",poly_size);
-#endif
-
-        int baseIdx = GPU_idx(0,kidx);
-
-        for(jj=0; jj<poly_size; jj++)
-        {
-                currentQ = Q[baseIdx+jj];
-                currentRadius = Q_rad[baseIdx+jj];
-                pt1=v+currentQ; //absolute position (within box) of circumcenter
-                //        v1=P[GPU_idx(jj, kidx)];
-                //        v2=P[GPU_idx((jj+1)%poly_size,kidx)];
-                Box.putInBoxReal(pt1);
-
-                cc = max(0,min(xsize-1,(int)floor(pt1.x/boxsize)));
-                dd = max(0,min(ysize-1,(int)floor(pt1.y/boxsize)));
-                q = ci(cc,dd);
-                //check neighbours of Q's cell inside the circumcircle
-                cc = ceil(currentRadius/boxsize);
-                cell_rad_in = min(cc,xsize/2);
-                cell_x = q%xsize;
-                cell_y = (q - cell_x)/ysize;
-#ifdef DEBUGFLAGUP
-                counter+=1;
-                maxCellsChecked  = max(maxCellsChecked,cell_rad_in*cell_rad_in);
-#endif
-
-                //This ordering of how the cells are checked is clearly inefficient -- perhaps replace it by a biased
-                //ordereding depending on where the circumcenter is relative to the target point
-                for (int cri = 0; cri <= cell_rad_in; ++cri)
-                {
-                        for (cc = -cri; cc <= cri; ++cc)//check neigh i
-                        {
-                                for (dd = -cri; dd <=cri; ++dd)//check neigh q
-                                {
-                                        if(!(cc==-cri || cc == cri || dd == -cri || dd == cri))
-                                                continue;
-                                        cx = positiveModulo(cell_x+dd,xsize); 
-                                        cy = positiveModulo(cell_y+cc,ysize); 
-                                        //if(!cellBucketInsideAngle(v,cx,cy,v1,v2,boxsize,Box))continue;
-                                        //check if there are any points in cellsns, if so do change, otherwise go for next bin
-                                        bin = ci(cx,cy);
-                                        numberInCell = d_cell_sizes[bin];
-
-#ifdef DEBUGFLAGUP
-                                        //if(kidx==spotcheck) printf("(jj,ff) = (%i,%i)\t counter = %i \t cell_rad_in = %i \t cellIdex = %i\t numberInCell = %i\n",jj,ff,counter,cell_rad_in,bin,numberInCell);
-#endif
-
-                                        for (aa = 0; aa < numberInCell; ++aa)//check parts in cell
-                                        {
-#ifdef DEBUGFLAGUP
-                                                blah +=1;
-#endif
-                                                newidx = d_cell_idx[cli(aa,bin)];
-                                                //skip any newidx's that are already part of the 1-ring
-                                                if(newidx == kidx) continue;
-                                                bool skipPoint = false;
-                                                for (int pidx = 0; pidx < poly_size; ++pidx)
-                                                        if(newidx == P_idx[baseIdx+pidx]) skipPoint = true;
-                                                if (skipPoint) continue;
-
-                                                //6-Compute the half-plane Hv defined by the bissector of v and c, containing c
-#ifdef DEBUGFLAGUP
-                                                blah2+=1;
-#endif
-                                                //how far is the point from the circumcircle's center?
-                                                rr=currentRadius*currentRadius;
-                                                Box.minDist(d_pt[newidx], v, disp); //disp = vector between new point and the point we're constructing the one ring of
-                                                Box.minDist(disp,currentQ,pt1); // pt1 gets overwritten by vector between new point and Pi's circumcenter
-                                                if(pt1.x*pt1.x+pt1.y*pt1.y>rr) continue;
-#ifdef DEBUGFLAGUP
-                                                blah3 +=1;
-#endif
-                                                //calculate half-plane bissector
-                                                if(abs(disp.y)<THRESHOLD)
-                                                {
-                                                        yy=disp.y/2+1;
-                                                        xx=disp.x/2;
-                        }
-                    else if(abs(disp.x)<THRESHOLD)
-                        {
-                        yy=disp.y/2;
-                        xx=disp.x/2+1;
-                        }
-                    else
-                        {
-                        yy=(disp.y*disp.y+disp.x*disp.x)/(2*disp.y);
-                        xx=0;
-                        }
-
-                    //7-Q<-Hv intersect Q
-                    //8-Update P, based on Q (Algorithm 2)      
-                    //which side is v at?
-                    cx = checkCW(0.5*disp.x,0.5*disp.y,xx,yy,0.,0.);
-                    if(cx== checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[baseIdx+jj].x,Q[baseIdx+jj].y))
-                        continue;
-
-                    //which side will Q be at
-                    j= jj > 0 ? jj-1 : poly_size - 1;
-                    m=jj;
-                    removed=0;
-                    save_j=-1;
-                    //see which voronoi temp points fall within the same bisector as cell v
-                    for(q = poly_size-1;q >=0; q--)
-                        {
-                        if(save_j == -1 && cx==checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[baseIdx+q].x,Q[baseIdx+q].y ))
-                            {
-                            save_j=q;
-                            break;
-                            }
-                        }
-
-                    //Remove the voronoi test points on the opposite half sector from the cell v
-                    //If more than 1 voronoi test point is removed, then also adjust the delaunay neighbors of v
-                    for(w=0; w<poly_size; w++)
-                        {
-                        q=(save_j+w)%poly_size;
-                        cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[baseIdx+q].x,Q[baseIdx+q].y);
-                        if(cy!=cx)
-                            {
-                            switch(removed)
-                                {
-                                case 0:
-                                    j=q;
-                                    m=(j+1)%poly_size;
-                                    removed++;
-                                    break;
-                                case 1:
-                                    m=(m+1)%poly_size;
-                                    removed++;
-                                    break;
-                                case 2:
-                                    for(pp=q; pp<poly_size-1; pp++)
-                                        {
-                                        Q[baseIdx+pp] = Q[baseIdx+pp+1];
-                                        P[baseIdx+pp] = P[baseIdx+pp+1];
-                                        Q_rad[baseIdx+pp] = Q_rad[baseIdx+pp+1];
-                                        P_idx[baseIdx+pp] = P_idx[baseIdx+pp+1];
-                                        }
-                                    poly_size--;
-                                    if(j>q)j--;
-                                    if(save_j>q)save_j--;
-                                    m=m%poly_size;
-                                    w--;
-                                    break;
-                                }
-                            }
-                        else if(removed>0)
-                            break;
-                        }
-                    if(removed==0)
-                        continue;
-
-                    //Introduce new (if it exists) delaunay neighbor and new voronoi points
-                    Circumcircle(P[GPU_idx(j,kidx)], disp, pt1, xx);
-                    Circumcircle(disp, P[GPU_idx(m,kidx)], pt2, yy);
-                    if(removed==1)
-                        {
-                        poly_size++;
-                        if(poly_size > currentMaxNeighbors)
-                            {
-                            atomicMax(&maximumNeighborNumber[0],poly_size);
-                            //printf("excess (%i,%i,%i)\n",poly_size,currentMaxNeighbors,maximumNeighborNumber[0]);
-                            return;
-                            }
-                        for(pp=poly_size-2; pp>j; pp--)
-                            {
-                            Q[baseIdx+pp+1]=Q[baseIdx+pp];
-                            P[baseIdx+pp+1]=P[baseIdx+pp];
-                            Q_rad[baseIdx+pp+1]=Q_rad[baseIdx+pp];
-                            P_idx[baseIdx+pp+1]=P_idx[baseIdx+pp];
-                            }
-                        }
-
-                    m=(j+1)%poly_size;
-                    Q[GPU_idx(m,kidx)]=pt2;
-                    Q_rad[GPU_idx(m,kidx)]=yy;
-                    P[GPU_idx(m,kidx)]=disp;
-                    P_idx[GPU_idx(m,kidx)]=newidx;
-
-                    Q[GPU_idx(j,kidx)]=pt1;
-                    Q_rad[GPU_idx(j,kidx)]=xx;
-                    flag=true;
-                    break;
-                    }//end checking all points in the current cell list cell
-                if(flag==true)
-                    break;
-                }//end cell neighbor check, q
-            if(flag==true)
-                break;
-            }//end cell neighbor check, i
-        }
-        if(flag==true)
-            {
-            jj--;
-            flag=false;
-            }
-        }//end iterative loop over all edges of the 1-ring
-
-    d_neighnum[kidx]=poly_size;
-#ifdef DEBUGFLAGUP
-if(kidx==spotcheck) printf(" points checked for kidx %i = %i, ignore self points = %i, ignore points outside circumcircles = %i, total neighs = %i \n",kidx,blah,blah2,blah3,poly_size);
-#endif
-    }
-
-//This kernel updates the initial polygon into the real delaunay one.
-//It goes through the same steps as in the paper, using the half plane intersection routine.
-//It outputs the complete triangulation per point in CCW order
-__global__ void gpu_get_neighbors_kernel(const double2* __restrict__ d_pt,
-                const unsigned int* __restrict__ d_cell_sizes,
-                const int* __restrict__ d_cell_idx,
-                int* __restrict__ P_idx,
-                double2* __restrict__ P,
-                double2* __restrict__ Q,
-                double* __restrict__ Q_rad,
-                int* __restrict__ d_neighnum,
-                int Ncells,
-                int xsize,
-                int ysize,
-                double boxsize,
-                periodicBoundaries Box,
-                Index2D ci,
-                Index2D cli,
-                const int* __restrict__ d_fixlist,
-                int Nf,
-                Index2D GPU_idx,
-                int *maximumNeighborNum,
-                int currentMaxNeighborNum
-                )
-    {
-
-
-    unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
-    if (tidx >= Nf)return;
-    unsigned int kidx=d_fixlist[tidx];
-    if (kidx >= Ncells)return;
-
-    get_oneRing_function_alternate(kidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
-    //get_oneRing_function(kidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
-
-    return;
-    }//end function
-
 __global__ void gpu_get_neighbors_no_sort_kernel(const double2* __restrict__ d_pt,
                 const unsigned int* __restrict__ d_cell_sizes,
                 const int* __restrict__ d_cell_idx,
@@ -1603,11 +1156,14 @@ __global__ void gpu_get_neighbors_no_sort_kernel(const double2* __restrict__ d_p
     unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
     if (tidx >= Ncells)return;
     if(d_fixlist[tidx] >=0)
-        get_oneRing_function_alternate(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+        get_oneRing_function(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
 
     return;
     }//end function
 
+//This kernel updates the initial polygon into the real delaunay one.
+//It goes through the same steps as in the paper, using the half plane intersection routine.
+//It outputs the complete triangulation per point in CCW order
 //!global get neighbors does not need a fixlist
 __global__ void gpu_get_neighbors_global_kernel(const double2* __restrict__ d_pt,
                 const unsigned int* __restrict__ d_cell_sizes,
@@ -1634,8 +1190,7 @@ __global__ void gpu_get_neighbors_global_kernel(const double2* __restrict__ d_pt
     unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
     if (tidx >= Ncells)return;
 
-    get_oneRing_function_alternate(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
-    //get_oneRing_function(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
+    get_oneRing_function(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,maximumNeighborNum);
         
     return;
     }//end function
@@ -1711,18 +1266,14 @@ bool gpu_voronoi_calc(double2* d_pt,
                 periodicBoundaries Box,
                 Index2D ci,
                 Index2D cli,
-                int* d_fixlist,
-                int Nf,
-                Index2D GPU_idx,
-                bool globalRoutine
+                Index2D GPU_idx
                 )
 {
         unsigned int block_size = THREADCOUNT;
-        if (Nf < THREADCOUNT) block_size = 32;
-        unsigned int nblocks  = Nf/block_size + 1;
+        if (Ncells < THREADCOUNT) block_size = 32;
+        unsigned int nblocks  = Ncells/block_size + 1;
 
-        if(globalRoutine)
-            gpu_voronoi_calc_global_kernel<<<nblocks,block_size>>>(
+        gpu_voronoi_calc_global_kernel<<<nblocks,block_size>>>(
                         d_pt,
                         d_cell_sizes,
                         d_cell_idx,
@@ -1738,27 +1289,6 @@ bool gpu_voronoi_calc(double2* d_pt,
                         Box,
                         ci,
                         cli,
-                        GPU_idx
-                        );
-        else
-            gpu_voronoi_calc_kernel<<<nblocks,block_size>>>(
-                        d_pt,
-                        d_cell_sizes,
-                        d_cell_idx,
-                        P_idx,
-                        P,
-                        Q,
-                        Q_rad,
-                        d_neighnum,
-                        Ncells,
-                        xsize,
-                        ysize,
-                        boxsize,
-                        Box,
-                        ci,
-                        cli,
-                        d_fixlist,
-                        Nf,
                         GPU_idx
                         );
 
@@ -1821,39 +1351,20 @@ bool gpu_get_neighbors(double2* d_pt, //the point set
                 periodicBoundaries Box,
                 Index2D ci,
                 Index2D cli,
-                int* d_fixlist,
-                int Nf,
                 Index2D GPU_idx,
                 int *maximumNeighborNum,
-                int currentMaxNeighborNum,
-                bool globalRoutine
+                int currentMaxNeighborNum
                 )
     {
-    unsigned int block_size = 64;
-    if (Nf < 64) block_size = 32;
-    unsigned int nblocks  = Nf/block_size + 1;
+    unsigned int block_size = THREADCOUNT;
+    if (Ncells < THREADCOUNT) block_size = 32;
+    unsigned int nblocks  = Ncells/block_size + 1;
 
-    /*
-    Note: currently this is a templatized work-around for having fixed array sizes for Hv in the one_ring function
-    One option would be to create a new data structure to store the ints of Hv of size N*MaxSize, etc.,
-    or think of something more clever
-    */
 
-    if(globalRoutine)
-        {
-        gpu_get_neighbors_global_kernel<<<nblocks,block_size>>>(
+    gpu_get_neighbors_global_kernel<<<nblocks,block_size>>>(
                       d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,
                       Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
                       );
-        }
-    else
-        {
-        gpu_get_neighbors_kernel<<<nblocks,block_size>>>(
-                      d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,Ncells,xsize,ysize,
-                      boxsize,Box,ci,cli,d_fixlist,Nf,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
-                      );
-        }
-
 
     HANDLE_ERROR(cudaGetLastError());
 #ifdef DEBUGFLAGUP
@@ -1862,30 +1373,6 @@ bool gpu_get_neighbors(double2* d_pt, //the point set
     return cudaSuccess;
     };
 
-bool gpu_build_repair(int* d_repair,
-                 int Np,
-                 int* Nf
-                 )
-    {
-    unsigned int block_size = THREADCOUNT;
-    if (Np < THREADCOUNT) block_size = 32;
-    unsigned int nblocks  = Np/block_size + 1;
-
-    unsigned int N=Np+1;
-    thrust::sort(thrust::device,d_repair, d_repair + N);
-
-    gpu_size_kernel<<<nblocks,block_size>>>(
-                    d_repair,
-                    Np,
-                    Nf
-                    );
-
-    HANDLE_ERROR(cudaGetLastError());
-#ifdef DEBUGFLAGUP
-    cudaDeviceSynchronize();
-#endif
-    return cudaSuccess;
-    };
 
 //!call the kernel to test every circumcenter to see if it's empty
 bool gpu_test_circumcenters(int *d_repair,

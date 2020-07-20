@@ -33,12 +33,6 @@ bool gpu_test_circumcenters(int *d_repair,
                             Index2D &cli
                             );
 
-//!Organize the repair array to send off to be triangulated
-bool gpu_build_repair( int *d_repair,
-                   int Np,
-                   int *Nf
-                   );
-
 bool gpu_voronoi_calc(double2* d_pt,
                       unsigned int* d_cell_sizes,
                       int* d_cell_idx,
@@ -54,10 +48,7 @@ bool gpu_voronoi_calc(double2* d_pt,
                       periodicBoundaries Box,
                       Index2D ci,
                       Index2D cli,
-                      int* d_fixlist,
-                      int Nf,
-                      Index2D GPU_idx,
-                      bool globalRoutine=false
+                      Index2D GPU_idx
                       );
 
 //call the voronoi_calc kernels *only* on elements of the fixlist, but without any sorting
@@ -97,12 +88,9 @@ bool gpu_get_neighbors(double2* d_pt,
                       periodicBoundaries Box,
                       Index2D ci,
                       Index2D cli,
-                      int* d_fixlist,
-                      int Nf,
                       Index2D GPU_idx,
                       int* maximumNeighborNum,
-                      int currentMaxNeighborNum,
-                      bool globalRoutine=false
+                      int currentMaxNeighborNum
                       );
 
 bool gpu_get_neighbors_no_sort(double2* d_pt,

@@ -143,7 +143,6 @@ __device__ inline void rotateInMemoryRight<double,4>(double *inList, int saveIdx
     inList[saveIdx+rotationSize+rotationOffset] = temp.z;
     inList[saveIdx+rotationSize+rotationOffset+1] = temp.w;
     };
-
 template<>
 __device__ inline void rotateInMemoryRight<int,4>( int *inList, int saveIdx, int rotationOffset,int rotationSize)
     {
@@ -156,6 +155,107 @@ __device__ inline void rotateInMemoryRight<int,4>( int *inList, int saveIdx, int
     inList[saveIdx+rotationSize+rotationOffset-1] = temp.y;
     inList[saveIdx+rotationSize+rotationOffset] = temp.z;
     inList[saveIdx+rotationSize+rotationOffset+1] = temp.w;
+    };
+
+template<>
+__device__ inline void rotateInMemoryRight<double,5>(double *inList, int saveIdx, int rotationOffset,int rotationSize)
+    {
+    double4 temp;
+    double t2;
+    t2 = inList[saveIdx+rotationSize+rotationOffset-4];
+    temp.x = inList[saveIdx+rotationSize+rotationOffset-3];
+    temp.y = inList[saveIdx+rotationSize+rotationOffset-2];
+    temp.z = inList[saveIdx+rotationSize+rotationOffset-1];
+    temp.w = inList[saveIdx+rotationSize+rotationOffset];
+    inList[saveIdx+rotationSize+rotationOffset-3] = t2;
+    inList[saveIdx+rotationSize+rotationOffset-2] = temp.x;
+    inList[saveIdx+rotationSize+rotationOffset-1] = temp.y;
+    inList[saveIdx+rotationSize+rotationOffset] = temp.z;
+    inList[saveIdx+rotationSize+rotationOffset+1] = temp.w;
+    };
+template<>
+__device__ inline void rotateInMemoryRight<double,6>( double *inList, int saveIdx, int rotationOffset,int rotationSize)
+    {
+    double4 temp;
+    double2 t2;
+    t2.x = inList[saveIdx+rotationSize+rotationOffset-5];
+    t2.y = inList[saveIdx+rotationSize+rotationOffset-4];
+    temp.x = inList[saveIdx+rotationSize+rotationOffset-3];
+    temp.y = inList[saveIdx+rotationSize+rotationOffset-2];
+    temp.z = inList[saveIdx+rotationSize+rotationOffset-1];
+    temp.w = inList[saveIdx+rotationSize+rotationOffset];
+    inList[saveIdx+rotationSize+rotationOffset-4] = t2.x;
+    inList[saveIdx+rotationSize+rotationOffset-3] = t2.y;
+    inList[saveIdx+rotationSize+rotationOffset-2] = temp.x;
+    inList[saveIdx+rotationSize+rotationOffset-1] = temp.y;
+    inList[saveIdx+rotationSize+rotationOffset] = temp.z;
+    inList[saveIdx+rotationSize+rotationOffset+1] = temp.w;
+    };
+template<>
+__device__ inline void rotateInMemoryRight<int,5>(int *inList, int saveIdx, int rotationOffset,int rotationSize)
+    {
+    int4 temp;
+    int t2;
+    t2 = inList[saveIdx+rotationSize+rotationOffset-4];
+    temp.x = inList[saveIdx+rotationSize+rotationOffset-3];
+    temp.y = inList[saveIdx+rotationSize+rotationOffset-2];
+    temp.z = inList[saveIdx+rotationSize+rotationOffset-1];
+    temp.w = inList[saveIdx+rotationSize+rotationOffset];
+    inList[saveIdx+rotationSize+rotationOffset-3] = t2;
+    inList[saveIdx+rotationSize+rotationOffset-2] = temp.x;
+    inList[saveIdx+rotationSize+rotationOffset-1] = temp.y;
+    inList[saveIdx+rotationSize+rotationOffset] = temp.z;
+    inList[saveIdx+rotationSize+rotationOffset+1] = temp.w;
+    };
+template<>
+__device__ inline void rotateInMemoryRight<int,6>( int *inList, int saveIdx, int rotationOffset,int rotationSize)
+    {
+    int4 temp;
+    int2 t2;
+    t2.x = inList[saveIdx+rotationSize+rotationOffset-5];
+    t2.y = inList[saveIdx+rotationSize+rotationOffset-4];
+    temp.x = inList[saveIdx+rotationSize+rotationOffset-3];
+    temp.y = inList[saveIdx+rotationSize+rotationOffset-2];
+    temp.z = inList[saveIdx+rotationSize+rotationOffset-1];
+    temp.w = inList[saveIdx+rotationSize+rotationOffset];
+    inList[saveIdx+rotationSize+rotationOffset-4] = t2.x;
+    inList[saveIdx+rotationSize+rotationOffset-3] = t2.y;
+    inList[saveIdx+rotationSize+rotationOffset-2] = temp.x;
+    inList[saveIdx+rotationSize+rotationOffset-1] = temp.y;
+    inList[saveIdx+rotationSize+rotationOffset] = temp.z;
+    inList[saveIdx+rotationSize+rotationOffset+1] = temp.w;
+    };
+template<>
+__device__ inline void rotateInMemoryRight<double2,5>( double2 *inList, int saveIdx, int rotationOffset,int rotationSize)
+    {
+    double2 temp1,temp2,temp3,temp4,temp5;
+    temp1 = inList[saveIdx+rotationSize+rotationOffset-4];
+    temp2 = inList[saveIdx+rotationSize+rotationOffset-3];
+    temp3 = inList[saveIdx+rotationSize+rotationOffset-2];
+    temp4 = inList[saveIdx+rotationSize+rotationOffset-1];
+    temp5 = inList[saveIdx+rotationSize+rotationOffset];
+    inList[saveIdx+rotationSize+rotationOffset-3] = temp1;
+    inList[saveIdx+rotationSize+rotationOffset-2] = temp2;
+    inList[saveIdx+rotationSize+rotationOffset-1] = temp3;
+    inList[saveIdx+rotationSize+rotationOffset] = temp4;
+    inList[saveIdx+rotationSize+rotationOffset+1] = temp5;
+    };
+template<>
+__device__ inline void rotateInMemoryRight<double2,6>( double2 *inList, int saveIdx, int rotationOffset,int rotationSize)
+    {
+    double2 temp1,temp2,temp3,temp4,temp5,temp6;
+    temp1 = inList[saveIdx+rotationSize+rotationOffset-5];
+    temp2 = inList[saveIdx+rotationSize+rotationOffset-4];
+    temp3 = inList[saveIdx+rotationSize+rotationOffset-3];
+    temp4 = inList[saveIdx+rotationSize+rotationOffset-2];
+    temp5 = inList[saveIdx+rotationSize+rotationOffset-1];
+    temp6 = inList[saveIdx+rotationSize+rotationOffset];
+    inList[saveIdx+rotationSize+rotationOffset-4] = temp1;
+    inList[saveIdx+rotationSize+rotationOffset-3] = temp2;
+    inList[saveIdx+rotationSize+rotationOffset-2] = temp3;
+    inList[saveIdx+rotationSize+rotationOffset-1] = temp4;
+    inList[saveIdx+rotationSize+rotationOffset] = temp5;
+    inList[saveIdx+rotationSize+rotationOffset+1] = temp6;
     };
 /*
 __device__ inline void rotateInMemoryRight<2>( int *intList, int saveIdx, int loadIdxOffset, int rotationSize)
@@ -1089,34 +1189,48 @@ __device__ void get_oneRing_function_alternate(int kidx,
                         int rotationSize = poly_size-2-j;
                         switch(rotationSize)
                             {
+                            case 0:
+                                break;
                             case 1:
                                 rotateInMemoryRight<double2, 1>(Q,baseIdx,j,rotationSize);
-                                rotateInMemoryRight<double,1>(Q_rad,baseIdx,j,rotationSize);
                                 rotateInMemoryRight<double2, 1>(P,baseIdx,j,rotationSize);
+                                rotateInMemoryRight<double,1>(Q_rad,baseIdx,j,rotationSize);
                                 rotateInMemoryRight<int, 1>(P_idx,baseIdx,j,rotationSize);
                                 break;
                             case 2:
                                 rotateInMemoryRight<double2, 2>(Q,baseIdx,j,rotationSize);
-                                rotateInMemoryRight<double,2>(Q_rad,baseIdx,j,rotationSize);
                                 rotateInMemoryRight<double2, 2>(P,baseIdx,j,rotationSize);
+                                rotateInMemoryRight<double,2>(Q_rad,baseIdx,j,rotationSize);
                                 rotateInMemoryRight<int, 2>(P_idx,baseIdx,j,rotationSize);
                                 break;
                             case 3:
                                 rotateInMemoryRight<double2, 3>(Q,baseIdx,j,rotationSize);
-                                rotateInMemoryRight<double,3>(Q_rad,baseIdx,j,rotationSize);
                                 rotateInMemoryRight<double2, 3>(P,baseIdx,j,rotationSize);
+                                rotateInMemoryRight<double,3>(Q_rad,baseIdx,j,rotationSize);
                                 rotateInMemoryRight<int, 3>(P_idx,baseIdx,j,rotationSize);
                                 break;
                             case 4:
                                 rotateInMemoryRight<double2, 4>(Q,baseIdx,j,rotationSize);
-                                rotateInMemoryRight<double,4>(Q_rad,baseIdx,j,rotationSize);
                                 rotateInMemoryRight<double2, 4>(P,baseIdx,j,rotationSize);
+                                rotateInMemoryRight<double,4>(Q_rad,baseIdx,j,rotationSize);
                                 rotateInMemoryRight<int, 4>(P_idx,baseIdx,j,rotationSize);
+                                break;
+                            case 5:
+                                rotateInMemoryRight<double2, 5>(Q,baseIdx,j,rotationSize);
+                                rotateInMemoryRight<double2, 5>(P,baseIdx,j,rotationSize);
+                                rotateInMemoryRight<double,5>(Q_rad,baseIdx,j,rotationSize);
+                                rotateInMemoryRight<int, 5>(P_idx,baseIdx,j,rotationSize);
+                                break;
+                            case 6:
+                                rotateInMemoryRight<double2, 6>(Q,baseIdx,j,rotationSize);
+                                rotateInMemoryRight<double2, 6>(P,baseIdx,j,rotationSize);
+                                rotateInMemoryRight<double,6>(Q_rad,baseIdx,j,rotationSize);
+                                rotateInMemoryRight<int, 6>(P_idx,baseIdx,j,rotationSize);
                                 break;
                             default:
                                 rotateInMemoryRight(Q,baseIdx,j,rotationSize);
-                                rotateInMemoryRight(Q_rad,baseIdx,j,rotationSize);
                                 rotateInMemoryRight(P,baseIdx,j,rotationSize);
+                                rotateInMemoryRight(Q_rad,baseIdx,j,rotationSize);
                                 rotateInMemoryRight(P_idx,baseIdx,j,rotationSize);
                             }
                         /*

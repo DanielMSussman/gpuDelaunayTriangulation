@@ -31,6 +31,138 @@ __device__ inline unsigned positiveModulo(int i, unsigned n)
     if(i < 0) mod += n;
     return mod;
     };
+
+template<typename T, int N = -1>
+__device__ inline void rotateInMemoryRight( T *inList, int saveIdx, int rotationOffset,int rotationSize)
+    {
+    for (int ii = rotationSize+rotationOffset; ii > rotationOffset; ii--)
+        {
+        inList[saveIdx+ii+1] = inList[saveIdx+ii];
+        }
+    }
+template<>
+__device__ inline void rotateInMemoryRight<double2,1>( double2 *inList, int saveIdx, int rotationOffset,int rotationSize)
+    {
+    inList[saveIdx+rotationSize+rotationOffset+1] = inList[saveIdx+rotationSize+rotationOffset];
+    };
+template<>
+__device__ inline void rotateInMemoryRight<double,1>(double *inList, int saveIdx, int rotationOffset,int rotationSize)
+    {
+    inList[saveIdx+rotationSize+rotationOffset+1] = inList[saveIdx+rotationSize+rotationOffset];
+    };
+template<>
+__device__ inline void rotateInMemoryRight<int,1>( int *inList, int saveIdx, int rotationOffset,int rotationSize)
+    {
+    inList[saveIdx+rotationSize+rotationOffset+1] = inList[saveIdx+rotationSize+rotationOffset];
+    };
+template<>
+__device__ inline void rotateInMemoryRight<double2,2>( double2 *inList, int saveIdx, int rotationOffset,int rotationSize)
+    {
+    double2 temp1,temp2;
+    temp1 = inList[saveIdx+rotationSize+rotationOffset-1];
+    temp2 = inList[saveIdx+rotationSize+rotationOffset];
+    inList[saveIdx+rotationSize+rotationOffset] = temp1;
+    inList[saveIdx+rotationSize+rotationOffset+1] = temp2;
+    };
+template<>
+__device__ inline void rotateInMemoryRight<double,2>(double *inList, int saveIdx, int rotationOffset,int rotationSize)
+    {
+    double2 temp;
+    temp.x = inList[saveIdx+rotationSize+rotationOffset-1];
+    temp.y = inList[saveIdx+rotationSize+rotationOffset];
+    inList[saveIdx+rotationSize+rotationOffset] = temp.x;
+    inList[saveIdx+rotationSize+rotationOffset+1] = temp.y;
+    };
+
+template<>
+__device__ inline void rotateInMemoryRight<int,2>( int *inList, int saveIdx, int rotationOffset,int rotationSize)
+    {
+    int2 temp;
+    temp.x = inList[saveIdx+rotationSize+rotationOffset-1];
+    temp.y = inList[saveIdx+rotationSize+rotationOffset];
+    inList[saveIdx+rotationSize+rotationOffset] = temp.x;
+    inList[saveIdx+rotationSize+rotationOffset+1] = temp.y;
+    };
+template<>
+__device__ inline void rotateInMemoryRight<double2,3>( double2 *inList, int saveIdx, int rotationOffset,int rotationSize)
+    {
+    double2 temp1,temp2,temp3;
+    temp1 = inList[saveIdx+rotationSize+rotationOffset-2];
+    temp2 = inList[saveIdx+rotationSize+rotationOffset-1];
+    temp3 = inList[saveIdx+rotationSize+rotationOffset];
+    inList[saveIdx+rotationSize+rotationOffset-1] = temp1;
+    inList[saveIdx+rotationSize+rotationOffset] = temp2;
+    inList[saveIdx+rotationSize+rotationOffset+1] = temp3;
+    };
+template<>
+__device__ inline void rotateInMemoryRight<double,3>(double *inList, int saveIdx, int rotationOffset,int rotationSize)
+    {
+    double3 temp;
+    temp.x = inList[saveIdx+rotationSize+rotationOffset-2];
+    temp.y = inList[saveIdx+rotationSize+rotationOffset-1];
+    temp.z = inList[saveIdx+rotationSize+rotationOffset];
+    inList[saveIdx+rotationSize+rotationOffset-1] = temp.x;
+    inList[saveIdx+rotationSize+rotationOffset] = temp.y;
+    inList[saveIdx+rotationSize+rotationOffset+1] = temp.z;
+    };
+
+template<>
+__device__ inline void rotateInMemoryRight<int,3>( int *inList, int saveIdx, int rotationOffset,int rotationSize)
+    {
+    int3 temp;
+    temp.x = inList[saveIdx+rotationSize+rotationOffset-2];
+    temp.y = inList[saveIdx+rotationSize+rotationOffset-1];
+    temp.z = inList[saveIdx+rotationSize+rotationOffset];
+    inList[saveIdx+rotationSize+rotationOffset-1] = temp.x;
+    inList[saveIdx+rotationSize+rotationOffset] = temp.y;
+    inList[saveIdx+rotationSize+rotationOffset+1] = temp.z;
+    };
+template<>
+__device__ inline void rotateInMemoryRight<double2,4>( double2 *inList, int saveIdx, int rotationOffset,int rotationSize)
+    {
+    double2 temp1,temp2,temp3,temp4;
+    temp1 = inList[saveIdx+rotationSize+rotationOffset-3];
+    temp2 = inList[saveIdx+rotationSize+rotationOffset-2];
+    temp3 = inList[saveIdx+rotationSize+rotationOffset-1];
+    temp4 = inList[saveIdx+rotationSize+rotationOffset];
+    inList[saveIdx+rotationSize+rotationOffset-2] = temp1;
+    inList[saveIdx+rotationSize+rotationOffset-1] = temp2;
+    inList[saveIdx+rotationSize+rotationOffset] = temp3;
+    inList[saveIdx+rotationSize+rotationOffset+1] = temp4;
+    };
+template<>
+__device__ inline void rotateInMemoryRight<double,4>(double *inList, int saveIdx, int rotationOffset,int rotationSize)
+    {
+    double4 temp;
+    temp.x = inList[saveIdx+rotationSize+rotationOffset-3];
+    temp.y = inList[saveIdx+rotationSize+rotationOffset-2];
+    temp.z = inList[saveIdx+rotationSize+rotationOffset-1];
+    temp.w = inList[saveIdx+rotationSize+rotationOffset];
+    inList[saveIdx+rotationSize+rotationOffset-2] = temp.x;
+    inList[saveIdx+rotationSize+rotationOffset-1] = temp.y;
+    inList[saveIdx+rotationSize+rotationOffset] = temp.z;
+    inList[saveIdx+rotationSize+rotationOffset+1] = temp.w;
+    };
+
+template<>
+__device__ inline void rotateInMemoryRight<int,4>( int *inList, int saveIdx, int rotationOffset,int rotationSize)
+    {
+    int4 temp;
+    temp.x = inList[saveIdx+rotationSize+rotationOffset-3];
+    temp.y = inList[saveIdx+rotationSize+rotationOffset-2];
+    temp.z = inList[saveIdx+rotationSize+rotationOffset-1];
+    temp.w = inList[saveIdx+rotationSize+rotationOffset];
+    inList[saveIdx+rotationSize+rotationOffset-2] = temp.x;
+    inList[saveIdx+rotationSize+rotationOffset-1] = temp.y;
+    inList[saveIdx+rotationSize+rotationOffset] = temp.z;
+    inList[saveIdx+rotationSize+rotationOffset+1] = temp.w;
+    };
+/*
+__device__ inline void rotateInMemoryRight<2>( int *intList, int saveIdx, int loadIdxOffset, int rotationSize)
+    {
+    }
+*/
+
 /*!
    Is a given cell bucket inside a given edge's angle?
 */
@@ -231,6 +363,19 @@ __device__ void virtual_voronoi_calc_function(        int kidx,
     P[GPU_idx(5, kidx)].y=-1.7*LL;
     */
 
+#ifdef DEBUGFLAGUP
+int blah = 0;
+int blah2 = 0;
+int blah3=0;
+int maxCellsChecked=0;
+int spotcheck=18;
+int counter= 0 ;
+if(kidx==spotcheck) printf("VP initial poly_size = %i\n",poly_size);
+unsigned int t1,t2,t3,t4,t5,t6,t7;
+t6=0;
+t1=clock();
+#endif
+
     for(m=0; m<poly_size; m++)
         {
         P_idx[GPU_idx(m, kidx)]=-1;
@@ -240,21 +385,15 @@ __device__ void virtual_voronoi_calc_function(        int kidx,
         Q[GPU_idx(m,kidx)]=pt1;
         Q_rad[GPU_idx(m,kidx)]=rr;
         }
+#ifdef DEBUGFLAGUP
+t1=clock();
+#endif
 
     double2 disp, pt2, v;
     double xx, yy;
     unsigned int ii, numberInCell, newidx, iii, aa, removed;
     int q, pp, w, j, jj, cx, cy, save_j, cc, dd, cell_rad_in, cell_rad, bin, cell_x, cell_y, save;
 
-#ifdef DEBUGFLAGUP
-int blah = 0;
-int blah2 = 0;
-int blah3=0;
-int maxCellsChecked=0;
-int spotcheck=18;
-int counter= 0 ;
-if(kidx==spotcheck) printf("VP initial poly_size = %i\n",poly_size);
-#endif
 
     v = d_pt[kidx];
     bool flag=false;
@@ -276,6 +415,9 @@ if(kidx==spotcheck) printf("VP initial poly_size = %i\n",poly_size);
 #ifdef DEBUGFLAGUP
 maxCellsChecked  = max(maxCellsChecked,cell_rad*cell_rad);
 counter+=1;
+t1=0;
+t7=0;
+t2=clock();
 #endif
         for (cell_rad_in = 0; cell_rad_in <= cell_rad; ++cell_rad_in)//check cell buckets in circumcircle
         {
@@ -304,6 +446,7 @@ counter+=1;
                     {
 #ifdef DEBUGFLAGUP
 blah +=1;
+t3=clock();
 #endif
                     newidx = d_cell_idx[cli(aa,bin)];
                     //6-Compute the half-plane Hv defined by the bissector of v and c, containing c
@@ -366,6 +509,10 @@ blah3 +=1;
                         }
                     if(Hv[jj]==cx)
                         continue;
+#ifdef DEBUGFLAGUP
+t4=clock();
+t1 += t4-t3;
+#endif
 
                     //Remove the voronoi test points on the opposite half sector from the cell v
                     //If more than 1 voronoi test point is removed, then also adjust the delaunay neighbors of v
@@ -409,6 +556,10 @@ blah3 +=1;
                     if(removed==0)
                         continue;
 
+#ifdef DEBUGFLAGUP
+t6 += clock()-t4;
+t2=clock();
+#endif
                     //Introduce new (if it exists) delaunay neighbor and new voronoi points
                     Circumcircle(P[GPU_idx(j,kidx)], disp, pt1, xx);
                     Circumcircle(disp, P[GPU_idx(m,kidx)], pt2, yy);
@@ -433,6 +584,9 @@ blah3 +=1;
                     Q[GPU_idx(j,kidx)]=pt1;
                     Q_rad[GPU_idx(j,kidx)]=xx;
                     flag=true;
+#ifdef DEBUGFLAGUP
+t7 += clock()-t2;
+#endif
                     break;
                     }//end checking all points in the current cell list cell
                 if(flag==true)
@@ -453,7 +607,11 @@ blah3 +=1;
 
     d_neighnum[kidx]=poly_size;
 #ifdef DEBUGFLAGUP
-    if(kidx==spotcheck) printf("VP points checked for kidx %i = %i, ignore self points = %i, ignore points outside circumcircles = %i, total neighs = %i \n",kidx,blah,blah2,blah3,poly_size);
+    if(kidx==spotcheck)
+        {
+        printf("VP points checked for kidx %i = %i, ignore self points = %i, ignore points outside circumcircles = %i, total neighs = %i \n",kidx,blah,blah2,blah3,poly_size);
+        printf("time checks : poly loading: %u \t subreplacement: %u \treplacement: %u\n",t1,t7,t6);
+        };
 #endif
     }
 
@@ -928,17 +1086,45 @@ __device__ void get_oneRing_function_alternate(int kidx,
                         {
                         //if(kidx ==18 ) printf("kidx %i shifting poly by %i\n",kidx,poly_size-1-j);
                         poly_size++;
+                        int rotationSize = poly_size-2-j;
+                        switch(rotationSize)
+                            {
+                            case 1:
+                                rotateInMemoryRight<double2, 1>(Q,baseIdx,j,rotationSize);
+                                rotateInMemoryRight<double,1>(Q_rad,baseIdx,j,rotationSize);
+                                rotateInMemoryRight<double2, 1>(P,baseIdx,j,rotationSize);
+                                rotateInMemoryRight<int, 1>(P_idx,baseIdx,j,rotationSize);
+                                break;
+                            case 2:
+                                rotateInMemoryRight<double2, 2>(Q,baseIdx,j,rotationSize);
+                                rotateInMemoryRight<double,2>(Q_rad,baseIdx,j,rotationSize);
+                                rotateInMemoryRight<double2, 2>(P,baseIdx,j,rotationSize);
+                                rotateInMemoryRight<int, 2>(P_idx,baseIdx,j,rotationSize);
+                                break;
+                            case 3:
+                                rotateInMemoryRight<double2, 3>(Q,baseIdx,j,rotationSize);
+                                rotateInMemoryRight<double,3>(Q_rad,baseIdx,j,rotationSize);
+                                rotateInMemoryRight<double2, 3>(P,baseIdx,j,rotationSize);
+                                rotateInMemoryRight<int, 3>(P_idx,baseIdx,j,rotationSize);
+                                break;
+                            case 4:
+                                rotateInMemoryRight<double2, 4>(Q,baseIdx,j,rotationSize);
+                                rotateInMemoryRight<double,4>(Q_rad,baseIdx,j,rotationSize);
+                                rotateInMemoryRight<double2, 4>(P,baseIdx,j,rotationSize);
+                                rotateInMemoryRight<int, 4>(P_idx,baseIdx,j,rotationSize);
+                                break;
+                            default:
+                                rotateInMemoryRight(Q,baseIdx,j,rotationSize);
+                                rotateInMemoryRight(Q_rad,baseIdx,j,rotationSize);
+                                rotateInMemoryRight(P,baseIdx,j,rotationSize);
+                                rotateInMemoryRight(P_idx,baseIdx,j,rotationSize);
+                            }
+                        /*
                         for(pp=poly_size-2; pp>j; pp--)
                             {
                             //sd2[threadIdx.x] = Q[baseIdx+pp];
                             //Q[baseIdx+pp+1] = sd2[threadIdx.x];
                             Q[baseIdx+pp+1]=Q[baseIdx+pp];
-                            }
-                        for(pp=poly_size-2; pp>j; pp--)
-                            {
-                            //si[threadIdx.x] = P_idx[baseIdx+pp];
-                            //P_idx[baseIdx+pp+1] = si[threadIdx.x];
-                            P_idx[baseIdx+pp+1]=P_idx[baseIdx+pp];
                             }
                         for(pp=poly_size-2; pp>j; pp--)
                             {
@@ -952,6 +1138,13 @@ __device__ void get_oneRing_function_alternate(int kidx,
                             //Q_rad[baseIdx+pp+1] = sd[threadIdx.x];
                             Q_rad[baseIdx+pp+1]=Q_rad[baseIdx+pp];
                             }
+                        for(pp=poly_size-2; pp>j; pp--)
+                            {
+                            //si[threadIdx.x] = P_idx[baseIdx+pp];
+                            //P_idx[baseIdx+pp+1] = si[threadIdx.x];
+                            P_idx[baseIdx+pp+1]=P_idx[baseIdx+pp];
+                            }
+                        */
                         }
                     m=(j+1)%poly_size;
                     Q[baseIdx+m]=pt2;

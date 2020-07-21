@@ -373,7 +373,7 @@ t1=clock();
     double2 disp, pt2, v;
     double xx, yy,currentRadius;
     unsigned int numberInCell, newidx, aa, removed;
-    int q, pp, w, j, jj, cx, cy, save_j, cc, dd, cell_rad_in, cell_rad, bin, cell_x, cell_y;
+    int q, pp, w, j, jj, cx, cy, save_j, cc, dd, cell_rad, bin, cell_x, cell_y;
 
 
     v = d_pt[kidx];
@@ -384,14 +384,15 @@ t1=clock();
         currentRadius = Q_rad[GPU_idx(jj,kidx)];
         pt1=v;//+Q[GPU_idx(jj,kidx)]; //absolute position (within box) of circumcenter
         Box.putInBoxReal(pt1);
-        cc = max(0,min(xsize-1,(int)floor(pt1.x/boxsize)));
-        dd = max(0,min(ysize-1,(int)floor(pt1.y/boxsize)));
-        q = ci(cc,dd);
+        currentRadius = Q_rad[GPU_idx(jj,kidx)];
+        cell_x = (int)floor(pt1.x/boxsize) % xsize;
+        cell_y = (int)floor(pt1.y/boxsize) % ysize;
+        cell_rad = min((int) ceil(currentRadius/boxsize),xsize/2);
+        cell_rad = (2*cell_rad+1);
+        cc = 0;
+        dd = 0;
+
         //check neighbours of Q's cell inside the circumcircle
-        cc = ceil(currentRadius/boxsize);
-        cell_rad = min(cc,xsize/2);
-        cell_x = q%xsize;
-        cell_y = (q - cell_x)/ysize;
 #ifdef DEBUGFLAGUP
 maxCellsChecked  = max(maxCellsChecked,cell_rad*cell_rad);
 counter+=1;
@@ -399,17 +400,26 @@ t1=0;
 t7=0;
 t2=clock();
 #endif
-        for (cell_rad_in = 0; cell_rad_in <= cell_rad; ++cell_rad_in)//check cell buckets in circumcircle
-        {
-        for (cc = -cell_rad_in; cc <= cell_rad_in; ++cc)//check neigh cc
+        for (int cellSpiral = 0; cellSpiral < cell_rad*cell_rad; ++cellSpiral)
             {
-            for (dd = -cell_rad_in; dd <=cell_rad_in; ++dd)//check neigh dd
-                {
-                if(cc ==-cell_rad_in ||cc == cell_rad_in ||dd ==-cell_rad_in ||dd==cell_rad_in)
-                {
+            cx = positiveModulo(cell_x+dd,xsize); 
+            cy = positiveModulo(cell_y+cc,ysize); 
 
-                cx = positiveModulo(cell_x+dd,xsize); 
-                cy = positiveModulo(cell_y+cc,ysize); 
+            //cue up the next pair of (dd,cc) cell indices relative to cell_x and cell_y
+            if(abs(dd) <= abs(cc) && (dd != cc || dd >=0 ))
+                {
+                if (cc >=0)
+                    dd += 1;
+                else
+                    dd -= 1;
+                }
+            else
+                {
+                if (dd >=0)
+                    cc -= 1;
+                else
+                    cc += 1;
+                }
 
                 //check if there are any points in cellsns, if so do change, otherwise go for next bin
                 bin = ci(cx,cy);
@@ -567,13 +577,6 @@ t7 += clock()-t2;
                     }//end checking all points in the current cell list cell
                 if(flag==true)
                     break;
-                }//end if spiral check
-                }//end cell neighbor check, dd
-            if(flag==true)
-                break;
-            }//end cell neighbor check, cc
-        if(flag==true)
-            break;   
         }//end cell neighbor check, cell_rad_in
         if(flag==true)
             {
@@ -683,237 +686,242 @@ __device__ void get_oneRing_function(int kidx,
                 )
     {
 
-    //I will reuse most variables
+    //note that many of these variable names get re-used in different contexts throughout the kernel... take care
     double2 disp, pt1, pt2, v,currentQ;// v1, v2;
     double rr, xx, yy,currentRadius;
-    unsigned int numberInCell, newidx, aa, removed;
-    int q, pp, m, w, j, jj, cx, cy, cc, dd, cell_rad_in, cell_rad, bin, cell_x, cell_y;
-    unsigned int poly_size=d_neighnum[kidx];
+    unsigned int newidx, aa, removed;
+    int pp, m, w, j, jj, cx, cy, cc, dd, cell_rad, bin, cell_x, cell_y;
 
     v = d_pt[kidx];
+    unsigned int poly_size=d_neighnum[kidx];
     bool flag=false;
 
     int baseIdx = GPU_idx(0,kidx);
     for(jj=0; jj<poly_size; jj++)
         {
         currentQ = Q[baseIdx+jj];
-        currentRadius = Q_rad[baseIdx+jj];
         pt1=v+currentQ; //absolute position (within box) of circumcenter
         //v1=P[GPU_idx(jj, kidx)];
         //v2=P[GPU_idx((jj+1)%poly_size, kidx)];
         Box.putInBoxReal(pt1);
-        cc = max(0,min(xsize-1,(int)floor(pt1.x/boxsize)));
-        dd = max(0,min(ysize-1,(int)floor(pt1.y/boxsize)));
-        q = ci(cc,dd);
+
         //check neighbours of Q's cell inside the circumcircle
-        cc = ceil(currentRadius/boxsize);
-        cell_rad = min(cc,xsize/2);
-        cell_x = q%xsize;
-        cell_y = (q - cell_x)/ysize;
-        for (cell_rad_in = 0; cell_rad_in <= cell_rad; ++cell_rad_in)//check cell buckets in circumcircle
-        {
-        for (cc = -cell_rad_in; cc <= cell_rad_in; ++cc)//check neigh cc
+        currentRadius = Q_rad[baseIdx+jj];
+        cell_x = (int)floor(pt1.x/boxsize) % xsize;
+        cell_y = (int)floor(pt1.y/boxsize) % ysize;
+        cell_rad = min((int) ceil(currentRadius/boxsize),xsize/2);
+        /*cells are currently checked in a spiral search from the central cell to the outermost...
+        current algorithm searches CCW, with the spiral being {{0,0},{1,0},{1,-1},...,{max,max}}.
+        A small optimization could select the spiral used based on the quadrant relative to the
+        base point
+        */
+        cell_rad = (2*cell_rad+1);
+        cc = 0;
+        dd = 0;
+        for (int cellSpiral = 0; cellSpiral < cell_rad*cell_rad; ++cellSpiral)
             {
-            for (dd = -cell_rad_in; dd <=cell_rad_in; ++dd)//check neigh dd
+            cx = positiveModulo(cell_x+dd,xsize); 
+            cy = positiveModulo(cell_y+cc,ysize); 
+
+            //cue up the next pair of (dd,cc) cell indices relative to cell_x and cell_y
+            if(abs(dd) <= abs(cc) && (dd != cc || dd >=0 ))
                 {
-                if(cc ==-cell_rad_in ||cc == cell_rad_in ||dd ==-cell_rad_in ||dd==cell_rad_in)
+                if (cc >=0)
+                    dd += 1;
+                else
+                    dd -= 1;
+                }
+            else
                 {
+                if (dd >=0)
+                    cc -= 1;
+                else
+                    cc += 1;
+                }
+            //if(cellBucketInsideAngle(v, cx, cy, v1, v2, boxsize, Box)==false)continue;
 
-                cx = positiveModulo(cell_x+dd,xsize); 
-                cy = positiveModulo(cell_y+cc,ysize); 
+            //check if there are any points in cellsns, if so do change, otherwise go for next bin
+            bin = ci(cx,cy);
 
-                //if(cellBucketInsideAngle(v, cx, cy, v1, v2, boxsize, Box)==false)continue;
-
-                //check if there are any points in cellsns, if so do change, otherwise go for next bin
-                bin = ci(cx,cy);
-                numberInCell = d_cell_sizes[bin];
-
-                for (aa = 0; aa < numberInCell; ++aa)//check parts in cell
+            for(aa = 0; aa < d_cell_sizes[bin]; ++aa) //check points in cell
+                {
+                newidx = d_cell_idx[cli(aa,bin)];
+                if(newidx == kidx || newidx == P_idx[baseIdx]) continue;
+                bool skipPoint = false;
+                for (int pidx = jj; pidx < poly_size; ++pidx)
+                    if(newidx == P_idx[baseIdx+pidx]) skipPoint = true;
+                if (skipPoint) continue;
+                //6-Compute the half-plane Hv defined by the bissector of v and c, containing c
+                //how far is the point from the circumcircle's center?
+                rr=currentRadius*currentRadius;
+                Box.minDist(d_pt[newidx], v, disp); //disp = vector between new point and the point we're constructing the one ring of
+                Box.minDist(disp,currentQ,pt1); // pt1 gets overwritten by vector between new point and Pi's circumcenter
+                if(pt1.x*pt1.x+pt1.y*pt1.y>rr)continue;
+                //calculate half-plane bissector
+                if(abs(disp.y) > THRESHOLD)
                     {
-                    newidx = d_cell_idx[cli(aa,bin)];
-                    if(newidx == kidx || newidx == P_idx[baseIdx]) continue;
-                    bool skipPoint = false;
-                    for (int pidx = jj; pidx < poly_size; ++pidx)
-                        if(newidx == P_idx[baseIdx+pidx]) skipPoint = true;
-                    if (skipPoint) continue;
-                    //6-Compute the half-plane Hv defined by the bissector of v and c, containing c
-                    //how far is the point from the circumcircle's center?
-                    rr=currentRadius*currentRadius;
-                    Box.minDist(d_pt[newidx], v, disp); //disp = vector between new point and the point we're constructing the one ring of
-                    Box.minDist(disp,currentQ,pt1); // pt1 gets overwritten by vector between new point and Pi's circumcenter
-                    if(pt1.x*pt1.x+pt1.y*pt1.y>rr)continue;
-                    //calculate half-plane bissector
-                    if(abs(disp.y) > THRESHOLD)
-                        {
-                        yy=(disp.y*disp.y+disp.x*disp.x)/(2*disp.y);
-                        xx=0;
-                        }
-                    else if(abs(disp.y)<THRESHOLD)
-                        {
-                        yy=disp.y/2+1;
-                        xx=disp.x/2;
-                        }
-                    if(abs(disp.x)<THRESHOLD)
-                        {
-                        yy=disp.y/2;
-                        xx=disp.x/2+1;
-                        }
+                    yy=(disp.y*disp.y+disp.x*disp.x)/(2*disp.y);
+                    xx=0;
+                    }
+                else if(abs(disp.y)<THRESHOLD)
+                    {
+                    yy=disp.y/2+1;
+                    xx=disp.x/2;
+                    }
+                if(abs(disp.x)<THRESHOLD)
+                    {
+                    yy=disp.y/2;
+                    xx=disp.x/2+1;
+                    }
 
-                    //7-Q<-Hv intersect Q
-                    //8-Update P, based on Q (Algorithm 2)      
-                    cx = checkCW(0.5*disp.x,0.5*disp.y,xx,yy,0.,0.);
-                    if(cx== checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[baseIdx+jj].x,Q[baseIdx+jj].y))
-                        continue;
+                //7-Q<-Hv intersect Q
+                //8-Update P, based on Q (Algorithm 2)      
+                cx = checkCW(0.5*disp.x,0.5*disp.y,xx,yy,0.,0.);
+                if(cx== checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[baseIdx+jj].x,Q[baseIdx+jj].y))
+                    continue;
 
-                    //Remove the voronoi test points on the opposite half sector from the cell v
-                    //If more than 1 voronoi test point is removed, then also adjust the delaunay neighbors of v
-                    int removeCW=0;
-                    bool removeCCW=false;
-                    bool firstRemove=true;
-                    removed=0;
-                    j=-1;
-                    //which side will Q be at
-                    cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[baseIdx+poly_size-1].x,Q[baseIdx+poly_size-1].y);
+                //Remove the voronoi test points on the opposite half sector from the cell v
+                //If more than 1 voronoi test point is removed, then also adjust the delaunay neighbors of v
+                int removeCW=0;
+                bool removeCCW=false;
+                bool firstRemove=true;
+                removed=0;
+                j=-1;
+                //which side will Q be at
+                cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[baseIdx+poly_size-1].x,Q[baseIdx+poly_size-1].y);
 
-                    removeCW=cy;
+                removeCW=cy;
+                if(cy!=cx)
+                    {
+                    j=poly_size-1;
+                    removed++;
+                    removeCCW=true;
+                    }
+
+                for(w=0; w<poly_size-1; w++)
+                    {
+                    cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[baseIdx+w].x,Q[baseIdx+w].y);
                     if(cy!=cx)
                         {
-                        j=poly_size-1;
-                        removed++;
-                        removeCCW=true;
-                        }
-
-                    for(w=0; w<poly_size-1; w++)
-                        {
-                        cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[baseIdx+w].x,Q[baseIdx+w].y);
-                        if(cy!=cx)
+                        if(removeCCW==false)
                             {
-                            if(removeCCW==false)
-                                {
-                                if(j<0)
-                                    j=w;
-                                else if(j>w)
-                                    j=w;
-                                removed++;
-                                removeCCW=true;
-                                }
-                            else
-                                {
-                                if(firstRemove==false)
-                                    {
-                                    for(pp=w; pp<poly_size-1; pp++)
-                                        {
-                                        Q[baseIdx+pp]=Q[baseIdx+pp+1];
-                                        }
-                                    for(pp=w; pp<poly_size-1; pp++)
-                                        {
-                                        P[baseIdx+pp]=P[baseIdx+pp+1];
-                                        }
-                                    for(pp=w; pp<poly_size-1; pp++)
-                                        {
-                                        Q_rad[baseIdx+pp]=Q_rad[baseIdx+pp+1];
-                                        }
-                                    for(pp=w; pp<poly_size-1; pp++)
-                                        {
-                                        P_idx[baseIdx+pp]=P_idx[baseIdx+pp+1];
-                                        }
-                                    poly_size--;
-                                    if(j>w)
-                                        j--;
-                                    w--;
-                                    }
-                                else 
-                                    firstRemove=false;
-                                removed++;
-                                }	    
+                            if(j<0)
+                                j=w;
+                            else if(j>w)
+                                j=w;
+                            removed++;
+                            removeCCW=true;
                             }
                         else
+                            {
+                            if(firstRemove==false)
+                                {
+                                for(pp=w; pp<poly_size-1; pp++)
+                                    {
+                                    Q[baseIdx+pp]=Q[baseIdx+pp+1];
+                                    }
+                                for(pp=w; pp<poly_size-1; pp++)
+                                    {
+                                    P[baseIdx+pp]=P[baseIdx+pp+1];
+                                    }
+                                for(pp=w; pp<poly_size-1; pp++)
+                                    {
+                                    Q_rad[baseIdx+pp]=Q_rad[baseIdx+pp+1];
+                                    }
+                                for(pp=w; pp<poly_size-1; pp++)
+                                    {
+                                    P_idx[baseIdx+pp]=P_idx[baseIdx+pp+1];
+                                    }
+                                poly_size--;
+                                if(j>w)
+                                    j--;
+                                w--;
+                                }
+                            else 
+                                firstRemove=false;
+                            removed++;
+                            }	    
+                        }
+                        else
                             removeCCW=false;
-                        }
-                    if(removeCW!=cx && removeCCW==true && firstRemove==false)
-                        {
-                        poly_size--;
-                        if(j>w)j--;
-                        }
+                    }
+                if(removeCW!=cx && removeCCW==true && firstRemove==false)
+                    {
+                    poly_size--;
+                    if(j>w)j--;
+                    }
 
-                    if(removed==0)
-                        continue;
+                if(removed==0)
+                    continue;
 
-                    //Introduce new (if it exists) delaunay neighbor and new voronoi points
-                    if(removed>1)
-                        m=(j+2)%poly_size;
-                    else 
-                        m=(j+1)%poly_size;
-                    Circumcircle(P[baseIdx+j], disp, pt1, xx);
-                    Circumcircle(disp, P[baseIdx+m], pt2, yy);
-                    if(removed==1)
-                        {
-                        //if(kidx ==18 ) printf("kidx %i shifting poly by %i\n",kidx,poly_size-1-j);
-                        poly_size++;
-                        if(poly_size > currentMaxNeighbors)
-                            {
-                            atomicMax(&maximumNeighborNumber[0],poly_size);
-                            return;
-                            }
-                        int rotationSize = poly_size-2-j;
-                        
-                        switch(rotationSize)
-                            {
-                            case 0:
-                                break;
-                            case 1:
-                                rotateInMemoryRight<double2, 1>(Q,baseIdx,j,rotationSize);
-                                rotateInMemoryRight<double2, 1>(P,baseIdx,j,rotationSize);
-                                rotateInMemoryRight<double,1>(Q_rad,baseIdx,j,rotationSize);
-                                rotateInMemoryRight<int, 1>(P_idx,baseIdx,j,rotationSize);
-                                break;
-                            case 2:
-                                rotateInMemoryRight<double2, 2>(Q,baseIdx,j,rotationSize);
-                                rotateInMemoryRight<double2, 2>(P,baseIdx,j,rotationSize);
-                                rotateInMemoryRight<double,2>(Q_rad,baseIdx,j,rotationSize);
-                                rotateInMemoryRight<int, 2>(P_idx,baseIdx,j,rotationSize);
-                                break;
-                            case 3:
-                                rotateInMemoryRight<double2, 3>(Q,baseIdx,j,rotationSize);
-                                rotateInMemoryRight<double2, 3>(P,baseIdx,j,rotationSize);
-                                rotateInMemoryRight<double,3>(Q_rad,baseIdx,j,rotationSize);
-                                rotateInMemoryRight<int, 3>(P_idx,baseIdx,j,rotationSize);
-                                break;
-                            case 4:
-                                rotateInMemoryRight<double2, 4>(Q,baseIdx,j,rotationSize);
-                                rotateInMemoryRight<double2, 4>(P,baseIdx,j,rotationSize);
-                                rotateInMemoryRight<double,4>(Q_rad,baseIdx,j,rotationSize);
-                                rotateInMemoryRight<int, 4>(P_idx,baseIdx,j,rotationSize);
-                                break;
-                            default:
-                                rotateInMemoryRight(Q,baseIdx,j,rotationSize);
-                                rotateInMemoryRight(P,baseIdx,j,rotationSize);
-                                rotateInMemoryRight(Q_rad,baseIdx,j,rotationSize);
-                                rotateInMemoryRight(P_idx,baseIdx,j,rotationSize);
-                            }
-                        }
+                //Introduce new (if it exists) delaunay neighbor and new voronoi points
+                if(removed>1)
+                    m=(j+2)%poly_size;
+                else 
                     m=(j+1)%poly_size;
-                    Q[baseIdx+m]=pt2;
-                    Q[baseIdx+j]=pt1;
-                    Q_rad[baseIdx+m]=yy;
-                    Q_rad[baseIdx+j]=xx;
+                Circumcircle(P[baseIdx+j], disp, pt1, xx);
+                Circumcircle(disp, P[baseIdx+m], pt2, yy);
+                if(removed==1)
+                    {
+                    //if(kidx ==18 ) printf("kidx %i shifting poly by %i\n",kidx,poly_size-1-j);
+                    poly_size++;
+                    if(poly_size > currentMaxNeighbors)
+                        {
+                        atomicMax(&maximumNeighborNumber[0],poly_size);
+                        return;
+                        }
+                    int rotationSize = poly_size-2-j;
+                    
+                    switch(rotationSize)
+                        {
+                        case 0:
+                            break;
+                        case 1:
+                            rotateInMemoryRight<double2, 1>(Q,baseIdx,j,rotationSize);
+                            rotateInMemoryRight<double2, 1>(P,baseIdx,j,rotationSize);
+                            rotateInMemoryRight<double,1>(Q_rad,baseIdx,j,rotationSize);
+                            rotateInMemoryRight<int, 1>(P_idx,baseIdx,j,rotationSize);
+                            break;
+                        case 2:
+                            rotateInMemoryRight<double2, 2>(Q,baseIdx,j,rotationSize);
+                            rotateInMemoryRight<double2, 2>(P,baseIdx,j,rotationSize);
+                            rotateInMemoryRight<double,2>(Q_rad,baseIdx,j,rotationSize);
+                            rotateInMemoryRight<int, 2>(P_idx,baseIdx,j,rotationSize);
+                            break;
+                        case 3:
+                            rotateInMemoryRight<double2, 3>(Q,baseIdx,j,rotationSize);
+                            rotateInMemoryRight<double2, 3>(P,baseIdx,j,rotationSize);
+                            rotateInMemoryRight<double,3>(Q_rad,baseIdx,j,rotationSize);
+                            rotateInMemoryRight<int, 3>(P_idx,baseIdx,j,rotationSize);
+                            break;
+                        case 4:
+                            rotateInMemoryRight<double2, 4>(Q,baseIdx,j,rotationSize);
+                            rotateInMemoryRight<double2, 4>(P,baseIdx,j,rotationSize);
+                            rotateInMemoryRight<double,4>(Q_rad,baseIdx,j,rotationSize);
+                            rotateInMemoryRight<int, 4>(P_idx,baseIdx,j,rotationSize);
+                            break;
+                        default:
+                            rotateInMemoryRight(Q,baseIdx,j,rotationSize);
+                            rotateInMemoryRight(P,baseIdx,j,rotationSize);
+                            rotateInMemoryRight(Q_rad,baseIdx,j,rotationSize);
+                            rotateInMemoryRight(P_idx,baseIdx,j,rotationSize);
+                        }
+                    }
+                m=(j+1)%poly_size;
+                Q[baseIdx+m]=pt2;
+                Q[baseIdx+j]=pt1;
+                Q_rad[baseIdx+m]=yy;
+                Q_rad[baseIdx+j]=xx;
 
-                    P[baseIdx+m]=disp;
-                    P_idx[baseIdx+m]=newidx;
+                P[baseIdx+m]=disp;
+                P_idx[baseIdx+m]=newidx;
 
-                    flag=true;
-                    break;
-                    }//end checking all points in the current cell list cell
-                if(flag==true)
-                    break;
-                }//end if spiral check
-                }//end cell neighbor check, dd
+                flag=true;
+                break;
+                }//end checking all points in the current cell list cell
             if(flag==true)
-                    break;
-            }//end cell neighbor check, cc
-        if(flag==true)
-                break;   
-        }//end cell neighbor check, cell_rad_in
+                break;
+            }//end spiral check
         if(flag==true)
             {
             jj--;

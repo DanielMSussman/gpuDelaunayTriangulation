@@ -174,7 +174,7 @@ int main(int argc, char*argv[])
     time_t now = time(0);
     tm *ltm = localtime(&now);
     char fname[256];
-    sprintf(fname,"timing_gpu%i_dateTime_%i_%i_%i.txt",gpuSwitch,ltm->tm_mon+1,ltm->tm_mday,ltm->tm_hour);
+    sprintf(fname,"timing_gpu%i_z%i_dateTime_%i_%i_%i.txt",gpuSwitch,programSwitch,ltm->tm_mon+1,ltm->tm_mday,ltm->tm_hour);
 
     for(int nn = 0; nn < ns.size();++nn)
     {

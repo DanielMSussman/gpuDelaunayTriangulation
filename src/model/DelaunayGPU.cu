@@ -355,7 +355,6 @@ int counter= 0 ;
 if(kidx==spotcheck) printf("VP initial poly_size = %i\n",poly_size);
 unsigned int t1,t2,t3,t4,t5,t6,t7;
 t6=0;
-t1=clock();
 #endif
 
     for(m=0; m<poly_size; m++)
@@ -372,20 +371,19 @@ t1=clock();
 #endif
 
     double2 disp, pt2, v;
-    double xx, yy;
-    unsigned int ii, numberInCell, newidx, iii, aa, removed;
-    int q, pp, w, j, jj, cx, cy, save_j, cc, dd, cell_rad_in, cell_rad, bin, cell_x, cell_y, save;
+    double xx, yy,currentRadius;
+    unsigned int numberInCell, newidx, aa, removed;
+    int q, pp, w, j, jj, cx, cy, save_j, cc, dd, cell_rad_in, cell_rad, bin, cell_x, cell_y;
 
 
     v = d_pt[kidx];
     bool flag=false;
 
-
     for(jj=0; jj<poly_size; jj++)
         {
+        currentRadius = Q_rad[GPU_idx(jj,kidx)];
         pt1=v;//+Q[GPU_idx(jj,kidx)]; //absolute position (within box) of circumcenter
         Box.putInBoxReal(pt1);
-        double currentRadius = Q_rad[GPU_idx(jj,kidx)];
         cc = max(0,min(xsize-1,(int)floor(pt1.x/boxsize)));
         dd = max(0,min(ysize-1,(int)floor(pt1.y/boxsize)));
         q = ci(cc,dd);
@@ -410,12 +408,8 @@ t2=clock();
                 if(cc ==-cell_rad_in ||cc == cell_rad_in ||dd ==-cell_rad_in ||dd==cell_rad_in)
                 {
 
-                cx = (cell_x+dd)%xsize;
-                if (cx <0)
-                    cx+=xsize;
-                cy = (cell_y+cc)%ysize;
-                if (cy <0)
-                    cy+=ysize;
+                cx = positiveModulo(cell_x+dd,xsize); 
+                cy = positiveModulo(cell_y+cc,ysize); 
 
                 //check if there are any points in cellsns, if so do change, otherwise go for next bin
                 bin = ci(cx,cy);
@@ -432,16 +426,19 @@ t3=clock();
 #endif
                     newidx = d_cell_idx[cli(aa,bin)];
                     //6-Compute the half-plane Hv defined by the bissector of v and c, containing c
-                    ii=GPU_idx(jj, kidx);
-                    iii=GPU_idx((jj+1)%poly_size, kidx);
-                    if(newidx==P_idx[ii] || newidx==P_idx[iii] || newidx==kidx)continue;
+                    newidx = d_cell_idx[cli(aa,bin)];
+                    if(newidx == kidx) continue;
+                    bool skipPoint = false;
+                    for (int pidx = 0; pidx < poly_size; ++pidx)
+                        if(newidx == P_idx[GPU_idx(pidx, kidx)]) skipPoint = true;
+                    if (skipPoint) continue;
 #ifdef DEBUGFLAGUP
 blah2+=1;
 #endif
                     //how far is the point from the circumcircle's center?
-                    rr=Q_rad[ii]*Q_rad[ii];
+                    rr=currentRadius*currentRadius;
                     Box.minDist(d_pt[newidx], v, disp); //disp = vector between new point and the point we're constructing the one ring of
-                    Box.minDist(disp,Q[ii],pt1); // pt1 gets overwritten by vector between new point and Pi's circumcenter
+                    Box.minDist(disp,Q[GPU_idx(jj, kidx)],pt1); // pt1 gets overwritten by vector between new point and Pi's circumcenter
                     if(pt1.x*pt1.x+pt1.y*pt1.y>rr)continue;
 #ifdef DEBUGFLAGUP
 blah3 +=1;
@@ -466,12 +463,19 @@ blah3 +=1;
                     //7-Q<-Hv intersect Q
                     //8-Update P, based on Q (Algorithm 2)      
                     cx = checkCW(0.5*disp.x,0.5*disp.y,xx,yy,0.,0.);
+                    if(cx== checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[GPU_idx(jj,kidx)].x,Q[GPU_idx(jj,kidx)].y))
+                        continue;
                     //cy=0; //which side will Q be at
                     j=jj-1;
                     if(j<0)j+=poly_size;
                     m=jj;
                     removed=0;
                     save_j=-1;
+
+#ifdef DEBUGFLAGUP
+t4=clock();
+t1 += t4-t3;
+#endif
                     //see which voronoi temp points fall within the same bisector as cell v
                     for(pp=0; pp<poly_size; pp++)
                         {
@@ -480,24 +484,14 @@ blah3 +=1;
                             q+=poly_size;
                         cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[GPU_idx(q, kidx)].x,Q[GPU_idx(q, kidx)].y );
 
-                        save=(q+1)%poly_size;
-                        if(newidx==P_idx[GPU_idx(q, kidx)] || newidx==P_idx[GPU_idx(save,kidx)])
-                            cy=cx+1;
-
                         Hv[q]=cy;
                         if(cy==cx && save_j==-1)
                             save_j=q;
 
                         }
-                    if(Hv[jj]==cx)
-                        continue;
-#ifdef DEBUGFLAGUP
-t4=clock();
-t1 += t4-t3;
-#endif
-
                     //Remove the voronoi test points on the opposite half sector from the cell v
                     //If more than 1 voronoi test point is removed, then also adjust the delaunay neighbors of v
+                    //which side will Q be at
                     for(w=0; w<poly_size; w++)
                         {
                         q=(save_j+w)%poly_size;
@@ -597,172 +591,6 @@ t7 += clock()-t2;
 #endif
     }
 
-/*!
-device function carries out the task of finding a good enclosing polygon
-*/
-__device__ void voronoi_calc_function(        int kidx,
-                                              const double2* __restrict__ d_pt,
-                                              const unsigned int* __restrict__ d_cell_sizes,
-                                              const int* __restrict__ d_cell_idx,
-                                              int* __restrict__ P_idx,
-                                              double2* __restrict__ P,
-                                              double2* __restrict__ Q,
-                                              double* __restrict__ Q_rad,
-                                              int* __restrict__ d_neighnum,
-                                              int Ncells,
-                                              int xsize,
-                                              int ysize,
-                                              double boxsize,
-                                              periodicBoundaries &Box,
-                                              Index2D &ci,
-                                              Index2D &cli,
-                                              Index2D &GPU_idx
-                                              )
-    {
-    int i,j,k;
-    double2 pt1,pt2;
-    double rr, z1, z2;
-    unsigned int poly_size;
-    double Lmax=(xsize*boxsize)/2;
-
-    //construct new poly around i
-    double2 v = d_pt[kidx];
-    poly_size=4;
-    d_neighnum[kidx]=4;
-    int Quad[4]={0,0,0,0};
-    unsigned int find=0;
-    int ii=floor(v.x/boxsize);
-    int jj=floor(v.y/boxsize);
-    int w=0;
-    int bin, cx, cy, quad_angle, numberInCell, newidx, pp, m, n, l, g;
-    while(find<4)
-        {
-        //if(w>Lmax)printf("voro_calc: %d, %d\n", kidx, w);
-        //go through the shell
-        for (i = -w; i <=w; ++i)
-            {
-            for (j = -w; j <=w; ++j)
-                {
-                if(i ==-w ||i == w ||j ==-w ||j==w)
-                    {
-                    cx = (ii+j)%xsize;
-                    if (cx <0)
-                        cx+=xsize;
-                    cy = (jj+i)%ysize;
-                    if (cy <0)
-                        cy+=ysize;
-                    bin = ci(cx,cy);
-                    //go through the cell
-
-                    numberInCell = d_cell_sizes[bin];
-                    for (pp = 0; pp < numberInCell; ++pp)
-                        {
-                        newidx = d_cell_idx[cli(pp,bin)];
-                        if(newidx==kidx)continue;
-
-                        Box.minDist(d_pt[newidx],v,pt1);
-                        if(pt1.y>0)
-                            {
-                            if(pt1.x>0)quad_angle=0;
-                            else quad_angle=1;
-                            }
-                        else
-                            {
-                            if(pt1.x>0)quad_angle=3;
-                            else quad_angle=2;
-                            }
-
-                        if(Quad[quad_angle]==0)
-                            {
-                            //check if it is in quadrant
-                            P[GPU_idx(quad_angle, kidx)]=pt1;
-                            P_idx[GPU_idx(quad_angle, kidx)]=newidx;
-                            Quad[quad_angle]=1;
-                            find++;
-
-                            //check if it is convex and self-intersecting
-                            if(find==4)
-                                {
-                                for(m=0; m<poly_size; m++)
-                                    {
-                                    n=m+1;
-                                    if(n>=poly_size)n-=poly_size;
-                                    Circumcircle(P[GPU_idx(m,kidx)],P[GPU_idx(n,kidx)], pt1, rr);
-                                    Q[GPU_idx(m,kidx)]=pt1;
-                                    Q_rad[GPU_idx(m,kidx)]=rr;
-                                    }
-
-                                    for(m=2; m<=poly_size+1; m++)
-                                        {
-                                        l=m;
-                                        n=m-1;
-                                        k=m-2;
-                                        if(n>=poly_size)n-=poly_size;
-                                        if(l>=poly_size)l-=poly_size;
-                                        Box.minDist(Q[GPU_idx(k, kidx)], Q[GPU_idx(n, kidx)],pt1);
-                                        Box.minDist(Q[GPU_idx(n, kidx)], Q[GPU_idx(l, kidx)],pt2);
-                                        z1=pt1.x*pt2.y-pt1.y*pt2.x;
-
-                                        //check if it is convex
-                                        if(m>2 && z1/z2<0)
-                                            {
-                                            find-=1;
-                                            Quad[n]=0;
-                                            break;
-                                            }
-                                        z2=z1;
-                                        g=m+1;
-                                        if(g>=poly_size)
-                                            g-=poly_size;
-
-                                        //check if it is self-intersecting
-                                        if(ccw(Q[GPU_idx(k, kidx)],Q[GPU_idx(l, kidx)],Q[GPU_idx(g, kidx)])!=ccw(Q[GPU_idx(n, kidx)],Q[GPU_idx(l, kidx)],Q[GPU_idx(g, kidx)]) && ccw(Q[GPU_idx(k, kidx)],Q[GPU_idx(n, kidx)],Q[GPU_idx(l, kidx)])!=ccw(Q[GPU_idx(k, kidx)],Q[GPU_idx(n, kidx)],Q[GPU_idx(g, kidx)]))
-                                            {
-                                            find-=1;
-                                            Quad[n]=0;
-                                            break;
-                                            }
-                                        }
-                                }//end if find
-                            }//end if Quad
-                        if(find==4)break;
-                        }//end pt check
-                    }//end in if ij 
-                if(find==4)break;
-                }//end j
-            if(find==4)break;
-            }//end i
-        w++;
-
-        //if the routine was not able to find a valid polygon around the cell 
-        //then create 4 virtual points at "infinity" that form a quadrilateral
-        if(w>=Lmax)
-            {
-            double LL=Lmax/1.414213562373095-EPSILON;
-            P[GPU_idx(0, kidx)].x=LL;
-            P[GPU_idx(0, kidx)].y=LL;
-            P[GPU_idx(1, kidx)].x=-LL;
-            P[GPU_idx(1, kidx)].y=LL;
-            P[GPU_idx(2, kidx)].x=-LL;
-            P[GPU_idx(2, kidx)].y=-LL;
-            P[GPU_idx(3, kidx)].x=LL;
-            P[GPU_idx(3, kidx)].y=-LL;
-            for(m=0; m<poly_size; m++)
-                {
-                P_idx[GPU_idx(m, kidx)]=-1;
-                n=m+1;
-                if(n>=poly_size)n-=poly_size;
-                Circumcircle(P[GPU_idx(m,kidx)],P[GPU_idx(n,kidx)], pt1, rr);
-                Q[GPU_idx(m,kidx)]=pt1;
-                Q_rad[GPU_idx(m,kidx)]=rr;
-                }
-            find=4;
-            }
-
-        }//end while
-
-    }
-
 //assumes "fixlist" has the structure fixlist[ii]=-1 --> dont triangulate
 __global__ void gpu_voronoi_calc_no_sort_kernel(const double2* __restrict__ d_pt,
                                               const unsigned int* __restrict__ d_cell_sizes,
@@ -793,8 +621,9 @@ __global__ void gpu_voronoi_calc_no_sort_kernel(const double2* __restrict__ d_pt
                           ci,cli,GPU_idx);
     return;
     }
+
 /*
-GPU implementatio of the DT. It makes use of a locallity lema described in (doi: 10.1109/ISVD.2012.9). It will only make the repair of the topology in case it is necessary. Steps are detailed as in paper.
+GPU implementation of the DT. It makes use of a locallity lema described in (doi: 10.1109/ISVD.2012.9). It will only make the repair of the topology in case it is necessary. Steps are detailed as in paper.
 */
 //This kernel constructs the initial test polygon.
 //Currently it only uses 4 points, one in each quadrant.
@@ -864,10 +693,6 @@ __device__ void get_oneRing_function(int kidx,
     v = d_pt[kidx];
     bool flag=false;
 
-    //__shared__ double2 sd2[THREADCOUNT];
-    //__shared__ double sd[THREADCOUNT];
-    //__shared__ int si[THREADCOUNT];
-
     int baseIdx = GPU_idx(0,kidx);
     for(jj=0; jj<poly_size; jj++)
         {
@@ -903,15 +728,12 @@ __device__ void get_oneRing_function(int kidx,
                 bin = ci(cx,cy);
                 numberInCell = d_cell_sizes[bin];
 
-                //if(kidx==spotcheck) printf("(jj,ff) = (%i,%i)\t counter = %i \t cell_rad_in = %i \t cellIdex = %i\t numberInCell = %i\n",
-                //                            jj,ff,counter,cell_rad_in,bin,numberInCell);
-
                 for (aa = 0; aa < numberInCell; ++aa)//check parts in cell
                     {
                     newidx = d_cell_idx[cli(aa,bin)];
-                    if(newidx == kidx) continue;
+                    if(newidx == kidx || newidx == P_idx[baseIdx]) continue;
                     bool skipPoint = false;
-                    for (int pidx = 0; pidx < poly_size; ++pidx)
+                    for (int pidx = jj; pidx < poly_size; ++pidx)
                         if(newidx == P_idx[baseIdx+pidx]) skipPoint = true;
                     if (skipPoint) continue;
                     //6-Compute the half-plane Hv defined by the bissector of v and c, containing c
@@ -979,29 +801,20 @@ __device__ void get_oneRing_function(int kidx,
                                 {
                                 if(firstRemove==false)
                                     {
-                                    //if(kidx ==127 ) printf("FR kidx %i shifting poly by %i\n",kidx,poly_size-1-w);
                                     for(pp=w; pp<poly_size-1; pp++)
                                         {
-                                        //sd2[threadIdx.x] = Q[baseIdx+pp+1];
-                                        //Q[baseIdx+pp] = sd2[threadIdx.x];
                                         Q[baseIdx+pp]=Q[baseIdx+pp+1];
                                         }
                                     for(pp=w; pp<poly_size-1; pp++)
                                         {
-                                        //sd2[threadIdx.x] = P[baseIdx+pp+1];
-                                        //P[baseIdx+pp ] = sd2[threadIdx.x];
                                         P[baseIdx+pp]=P[baseIdx+pp+1];
                                         }
                                     for(pp=w; pp<poly_size-1; pp++)
                                         {
-                                        //sd[threadIdx.x] = Q_rad[baseIdx+pp+1];
-                                        //Q_rad[baseIdx+pp] = sd[threadIdx.x];
                                         Q_rad[baseIdx+pp]=Q_rad[baseIdx+pp+1];
                                         }
                                     for(pp=w; pp<poly_size-1; pp++)
                                         {
-                                        //si[threadIdx.x] = P_idx[baseIdx+pp+1];
-                                        //P_idx[baseIdx+pp ] = si[threadIdx.x];
                                         P_idx[baseIdx+pp]=P_idx[baseIdx+pp+1];
                                         }
                                     poly_size--;
@@ -1070,32 +883,6 @@ __device__ void get_oneRing_function(int kidx,
                                 rotateInMemoryRight(Q_rad,baseIdx,j,rotationSize);
                                 rotateInMemoryRight(P_idx,baseIdx,j,rotationSize);
                             }
-                        /*
-                        for(pp=poly_size-2; pp>j; pp--)
-                            {
-                            //sd2[threadIdx.x] = Q[baseIdx+pp];
-                            //Q[baseIdx+pp+1] = sd2[threadIdx.x];
-                            Q[baseIdx+pp+1]=Q[baseIdx+pp];
-                            }
-                        for(pp=poly_size-2; pp>j; pp--)
-                            {
-                            //sd2[threadIdx.x] = P[baseIdx+pp];
-                            //P[baseIdx+pp+1] = sd2[threadIdx.x];
-                            P[baseIdx+pp+1]=P[baseIdx+pp];
-                            }
-                        for(pp=poly_size-2; pp>j; pp--)
-                            {
-                            //sd[threadIdx.x] = Q_rad[baseIdx+pp];
-                            //Q_rad[baseIdx+pp+1] = sd[threadIdx.x];
-                            Q_rad[baseIdx+pp+1]=Q_rad[baseIdx+pp];
-                            }
-                        for(pp=poly_size-2; pp>j; pp--)
-                            {
-                            //si[threadIdx.x] = P_idx[baseIdx+pp];
-                            //P_idx[baseIdx+pp+1] = si[threadIdx.x];
-                            P_idx[baseIdx+pp+1]=P_idx[baseIdx+pp];
-                            }
-                        */
                         }
                     m=(j+1)%poly_size;
                     Q[baseIdx+m]=pt2;

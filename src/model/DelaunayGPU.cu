@@ -743,20 +743,20 @@ __device__ void get_oneRing_function(int kidx,
                     Box.minDist(disp,currentQ,pt1); // pt1 gets overwritten by vector between new point and Pi's circumcenter
                     if(pt1.x*pt1.x+pt1.y*pt1.y>rr)continue;
                     //calculate half-plane bissector
-                    if(abs(disp.y)<THRESHOLD)
+                    if(abs(disp.y) > THRESHOLD)
+                        {
+                        yy=(disp.y*disp.y+disp.x*disp.x)/(2*disp.y);
+                        xx=0;
+                        }
+                    else if(abs(disp.y)<THRESHOLD)
                         {
                         yy=disp.y/2+1;
                         xx=disp.x/2;
                         }
-                    else if(abs(disp.x)<THRESHOLD)
+                    if(abs(disp.x)<THRESHOLD)
                         {
                         yy=disp.y/2;
                         xx=disp.x/2+1;
-                        }
-                    else
-                        {
-                        yy=(disp.y*disp.y+disp.x*disp.x)/(2*disp.y);
-                        xx=0;
                         }
 
                     //7-Q<-Hv intersect Q
@@ -840,15 +840,23 @@ __device__ void get_oneRing_function(int kidx,
                         continue;
 
                     //Introduce new (if it exists) delaunay neighbor and new voronoi points
-                    if(removed>1)m=(j+2)%poly_size;
-                    else m=(j+1)%poly_size;
+                    if(removed>1)
+                        m=(j+2)%poly_size;
+                    else 
+                        m=(j+1)%poly_size;
                     Circumcircle(P[baseIdx+j], disp, pt1, xx);
                     Circumcircle(disp, P[baseIdx+m], pt2, yy);
                     if(removed==1)
                         {
                         //if(kidx ==18 ) printf("kidx %i shifting poly by %i\n",kidx,poly_size-1-j);
                         poly_size++;
+                        if(poly_size > currentMaxNeighbors)
+                            {
+                            atomicMax(&maximumNeighborNumber[0],poly_size);
+                            return;
+                            }
                         int rotationSize = poly_size-2-j;
+                        
                         switch(rotationSize)
                             {
                             case 0:
@@ -886,12 +894,13 @@ __device__ void get_oneRing_function(int kidx,
                         }
                     m=(j+1)%poly_size;
                     Q[baseIdx+m]=pt2;
+                    Q[baseIdx+j]=pt1;
                     Q_rad[baseIdx+m]=yy;
+                    Q_rad[baseIdx+j]=xx;
+
                     P[baseIdx+m]=disp;
                     P_idx[baseIdx+m]=newidx;
 
-                    Q[baseIdx+j]=pt1;
-                    Q_rad[baseIdx+j]=xx;
                     flag=true;
                     break;
                     }//end checking all points in the current cell list cell
@@ -906,10 +915,10 @@ __device__ void get_oneRing_function(int kidx,
                 break;   
         }//end cell neighbor check, cell_rad_in
         if(flag==true)
-        {
-                jj--;
-                flag=false;
-        }
+            {
+            jj--;
+            flag=false;
+            }
         }//end iterative loop over all edges of the 1-ring
 
     d_neighnum[kidx]=poly_size;

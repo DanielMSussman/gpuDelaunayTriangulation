@@ -748,12 +748,12 @@ __device__ void get_oneRing_function_alternate(int kidx,
     //I will reuse most variables
     double2 disp, pt1, pt2, v,currentQ;// v1, v2;
     double rr, xx, yy,currentRadius;
-    unsigned int numberInCell, newidx, aa, removed;
+    unsigned int numberInCell, newidx, aa, removed, removeCW;
     int q, pp, m, w, j, jj, cx, cy, cc, dd, cell_rad_in, cell_rad, bin, cell_x, cell_y;
     unsigned int poly_size=d_neighnum[kidx];
 
     v = d_pt[kidx];
-    bool flag=false;
+    bool flag=false, removeCCW, firstRemove;
 
     int baseIdx = GPU_idx(0,kidx);
     for(jj=0; jj<poly_size; jj++)
@@ -832,23 +832,23 @@ __device__ void get_oneRing_function_alternate(int kidx,
 
                     //Remove the voronoi test points on the opposite half sector from the cell v
                     //If more than 1 voronoi test point is removed, then also adjust the delaunay neighbors of v
-                    int removeCW=0;
-                    bool removeCCW=false;
-                    bool firstRemove=true;
+                    removeCW=0;
+                    removeCCW=false;
+                    firstRemove=true;
                     removed=0;
                     j=-1;
                     //which side will Q be at
-                    cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[baseIdx+poly_size-1].x,Q[baseIdx+poly_size-1].y);
 
+                    cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[baseIdx+poly_size-1].x,Q[baseIdx+poly_size-1].y);
                     removeCW=cy;
                     if(cy!=cx)
                         {
                         j=poly_size-1;
                         removed++;
-                        removeCCW=true;
+                        if(jj==0)removeCCW=true;
                         }
 
-                    for(w=0; w<poly_size-1; w++)
+                    for(w=jj; w<poly_size-1; w++)
                         {
                         cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[baseIdx+w].x,Q[baseIdx+w].y);
                         if(cy!=cx)

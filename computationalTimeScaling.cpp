@@ -164,9 +164,6 @@ int main(int argc, char*argv[])
         GPU = chooseGPU(gpuSwitch);
 
     bool reproducible = true;
-    cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop,gpuSwitch);
-
 
     vector<int> ns;
     for (int p2 = 7; p2 < 22; ++p2)

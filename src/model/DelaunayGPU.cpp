@@ -1,7 +1,7 @@
 #include "DelaunayGPU.h"
 #include "DelaunayGPU.cuh"
 #include "cellListGPU.cuh"
-#include "gpuUtilities.cuh"
+#include "utilities.cuh"
 
 DelaunayGPU::DelaunayGPU() :
 	cellsize(1.10), delGPUcircumcentersInitialized(false), cListUpdated(false), Ncells(0), NumCircumCenters(0)

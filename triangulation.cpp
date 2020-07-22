@@ -337,7 +337,7 @@ cudaDeviceSynchronize();
     cout << endl;
     mProf.print();
     }
-else if (programSwitch == -2)//test and repair routines
+else if (programSwitch == -2 || programSwitch == -3)//test and repair routines
     {
     vector<int> repairList(N);
     for(int ii = 0; ii < N; ++ii)
@@ -379,6 +379,8 @@ cudaDeviceSynchronize();
             }
         }
         //make sure the triangulation is wrong:
+if(programSwitch == -2)
+{
         cout << " comparing with CGAL to see the old triangulation is wrong" << endl;
         {
         ArrayHandle<double2> gps(gpuPts,access_location::host,access_mode::read);
@@ -396,7 +398,7 @@ cudaDeviceSynchronize();
         {
         ArrayHandle<double2> p(gpuPts,access_location::device,access_mode::readwrite);
         }
-
+}
         cout << "using delGPU to testAndRepair" << endl;
 cudaDeviceSynchronize();
         mProf.start("delGPU testAndRepair");
@@ -404,6 +406,9 @@ cudaDeviceSynchronize();
 cudaDeviceSynchronize();
         mProf.end("delGPU testAndRepair");
 
+if(programSwitch == -2)
+{
+        cout << "re-triangulating with CGAL for comparison..." << endl;
         {
         ArrayHandle<double2> gps(gpuPts,access_location::host,access_mode::read);
         for (int ii = 0; ii < N; ++ii)
@@ -420,6 +425,7 @@ cudaDeviceSynchronize();
         compareTriangulation(cgalTriangulation.allneighs, gpuTriangulation,cellNeighborNumber);
         printf("...done\n");
         mProf.end("triangulation comparison");
+}
 
 
         }

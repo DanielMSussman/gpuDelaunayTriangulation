@@ -249,6 +249,8 @@ __global__ void gpu_test_circumcircles_kernel(int* __restrict__ d_repair,
             for (int pp = 0; pp < d_cell_sizes[bin]; ++pp)
                 {
                 int newidx = d_cell_idx[cli(pp,bin)];
+                if(newidx == i1.x || newidx == i1.y || newidx == i1.z)
+                    continue;
 
                 Box.minDist(d_pt[newidx],v,pt1);
                 Box.minDist(pt1,Q,pt2);
@@ -256,14 +258,14 @@ __global__ void gpu_test_circumcircles_kernel(int* __restrict__ d_repair,
                 //if it's in the circumcircle, check that its not one of the three points
                 if(pt2.x*pt2.x+pt2.y*pt2.y < rad)
                     {
-                    if (newidx != i1.x && newidx != i1.y && newidx !=i1.z)
-                        {
-                        badParticle = true;
-                        d_repair[newidx] = newidx;
-                        };
+                    d_repair[newidx] = newidx;
+                    badParticle = true;
                     };
+                if(badParticle) break;
                 };//end loop over particles in the given cell
+            if(badParticle) break;
             };
+        if(badParticle) break;
         };// end loop over cells
     if (badParticle)
         {

@@ -405,26 +405,42 @@ void DelaunayGPU::testAndRepairDelaunayTriangulation(GPUArray<double2> &points, 
         delGPUcircumcircles.resize(2*points.getNumElements());
     prof.start("getCCS");
     getCircumcirclesGPU(GPUTriangulation,cellNeighborNum);
+#ifdef DEBUGFLAGUP
+cudaDeviceSynchronize();
+#endif
     prof.end("getCCS");
 
     prof.start("cellList");
 	cList.computeGPU(points);
+    cListUpdated=true;
+#ifdef DEBUGFLAGUP
+cudaDeviceSynchronize();
+#endif
     prof.end("cellList");
 
-    prof.start("testCCS");
+    prof.start("resetRepairList");
     {
     ArrayHandle<int> d_repair(repair,access_location::device,access_mode::readwrite);
     gpu_set_array(d_repair.data,-1,Ncells);
     }
+#ifdef DEBUGFLAGUP
+cudaDeviceSynchronize();
+#endif
+    prof.end("resetRepairList");
+    prof.start("testCCS");
     testTriangulation(points);
+#ifdef DEBUGFLAGUP
+cudaDeviceSynchronize();
+#endif
     prof.end("testCCS");
     
-
-
     //locally repair
     prof.start("repairPoints");
     int filloutfunction = -1;//has no effect, but exists so we can easily swap sorting vs non-sorting algorithms during testing phase
     locallyRepairDelaunayTriangulation(points,GPUTriangulation,cellNeighborNum,repair,filloutfunction);
+#ifdef DEBUGFLAGUP
+cudaDeviceSynchronize();
+#endif
     prof.end("repairPoints");
     }
 

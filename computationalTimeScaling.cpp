@@ -215,6 +215,10 @@ int main(int argc, char*argv[])
     ArrayHandleAsync<int> cnn(cellNeighborNumber,access_location::device,access_mode::readwrite);
     }
     delGPU.setSafetyMode(safetyMode);
+    if(gpuSwitch>=0)
+        delGPU.setGPUcompute(true);
+    else
+        delGPU.setGPUcompute(false);
     DelaunayCGAL cgalTriangulation;
 
     for (int iteration = 0; iteration<maximumIterations; ++iteration)

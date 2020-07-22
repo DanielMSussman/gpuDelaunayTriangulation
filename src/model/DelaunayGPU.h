@@ -15,7 +15,6 @@ using namespace std;
  *It makes use of a locallity lema described in (doi: 10.1109/ISVD.2012.9).
  *It will only make the repair of the topology in case it is necessary.
  *Steps are detailed as in paper.
- * This function operates strictly on the GPU
  */
 
 class DelaunayGPU
@@ -35,10 +34,6 @@ class DelaunayGPU
         //!function call to change the maximum number of neighbors per point
         void resize(const int nmax);
 
-        //!<Set points that need repair via a GPUarray
-        void setRepair(GPUArray<int> &rep);
-        //!Set the circumcircles via a GPUArray
-        void setCircumcircles(GPUArray<int3> &circumcircles);
         //!Initialize various things, based on a given cell size for the underlying grid
         void setList(double csize, GPUArray<double2> &points);
         //!Only update the cell list
@@ -52,6 +47,11 @@ class DelaunayGPU
         //!build the auxiliary data structure containing the indices of the particle circumcircles from the neighbor list
         void getCircumcircles(GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
 
+        //go through GPU routines
+        void setGPUcompute(bool flag)
+        {
+            GPUcompute=flag;
+        };
         //!Tests the circumcircles of the DT to check if they overlap any new poin
         void testTriangulation();
 
@@ -83,11 +83,15 @@ class DelaunayGPU
         //!Main function of this class, it performs the Delaunay triangulation
         void Voronoi_Calc(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
         bool get_neighbors(GPUArray<double2> &points,GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
+        void Voronoi_Calc_CPU(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
+        bool get_neighbors_CPU(GPUArray<double2> &points,GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
 
         //!testing an alternate memory pattern for local repairs
         void voronoiCalcRepairList(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum,GPUArray<int> &repairList);
+        void voronoiCalcRepairList_CPU(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum,GPUArray<int> &repairList);
         //!same memory pattern, for getNeighbors
         bool computeTriangulationRepairList(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum,GPUArray<int> &repairList);
+        bool computeTriangulationRepairList_CPU(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum,GPUArray<int> &repairList);
         //!prep the cell list
         void initializeCellList();
 
@@ -117,9 +121,11 @@ class DelaunayGPU
         int MaxSize;
         int NumCircumcircles;
 
-        //!A list to save all the cells that need fixing
+        //!A utility list -- currently used to compute circumcenter sets on the GPU
         GPUArray<int> sizeFixlist;
         int size_fixlist;
+        //flag that tells the code to use either CPU or GPU routines
+        bool GPUcompute;
 
         //!A 2dIndexer for computing where in the GPUArray to look for a given particles neighbors GPU
         Index2D GPU_idx;

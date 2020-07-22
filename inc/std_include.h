@@ -72,6 +72,11 @@ inline bool fileExists(const std::string& name)
 //!Get basic stats about the chosen GPU (if it exists)
 __host__ inline bool chooseGPU(int USE_GPU,bool verbose = false)
     {
+    if(USE_GPU < 0)
+        {
+        cout << "running on the CPU..." << endl;
+        return false;
+        }
     int nDev;
     cudaGetDeviceCount(&nDev);
     if (USE_GPU >= nDev)

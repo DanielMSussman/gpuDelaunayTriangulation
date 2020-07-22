@@ -16,15 +16,15 @@
 #define THREADCOUNT 128
 
 
-__device__ inline double checkCCW(const double2 pa, const double2 pb, const double2 pc)
+__host__ __device__ inline double checkCCW(const double2 pa, const double2 pb, const double2 pc)
     {
     return (pa.x - pb.x) * (pa.y - pc.y) - (pa.y - pb.y) * (pa.x - pc.x);
     }
-__device__ inline int checkCW(const double pax, const double pay, const double pbx, const double pby, const double pcx, const double pcy)
+__host__ __device__ inline int checkCW(const double pax, const double pay, const double pbx, const double pby, const double pcx, const double pcy)
     {
     return ((pax - pbx) * (pay - pcy) - (pay - pby) * (pax - pcx)) >0 ? 0 : 1;
     }
-__device__ inline unsigned positiveModulo(int i, unsigned n)
+__host__ __device__ inline unsigned positiveModulo(int i, unsigned n)
     {
     int mod = i % (int) n;
     if(i < 0) mod += n;
@@ -156,12 +156,6 @@ __device__ inline void rotateInMemoryRight<int,4>( int *inList, int saveIdx, int
     inList[saveIdx+rotationSize+rotationOffset+1] = temp.w;
     };
 
-/*
-__device__ inline void rotateInMemoryRight<2>( int *intList, int saveIdx, int loadIdxOffset, int rotationSize)
-    {
-    }
-*/
-
 /*!
    Is a given cell bucket inside a given edge's angle?
 */
@@ -280,7 +274,7 @@ __global__ void gpu_test_circumcircles_kernel(int* __restrict__ d_repair,
 /*!
 device function carries out the task of finding a good enclosing polygon, using the virtual point and half-plane intersection method
 */
-__device__ void virtual_voronoi_calc_function(        int kidx,
+__host__ __device__ void virtual_voronoi_calc_function(        int kidx,
                                               const double2* __restrict__ d_pt,
                                               const unsigned int* __restrict__ d_cell_sizes,
                                               const int* __restrict__ d_cell_idx,
@@ -307,7 +301,6 @@ __device__ void virtual_voronoi_calc_function(        int kidx,
     double LL=Lmax/1.414213562373095-EPSILON;
 
     poly_size=4;
-    int Hv[4];//={-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
     P[GPU_idx(0, kidx)].x=LL;
     P[GPU_idx(0, kidx)].y=LL;
     P[GPU_idx(1, kidx)].x=-LL;
@@ -318,7 +311,6 @@ __device__ void virtual_voronoi_calc_function(        int kidx,
     P[GPU_idx(3, kidx)].y=-LL;
     /*
     poly_size=5;
-    int Hv[5];//={-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
     P[GPU_idx(0, kidx)].x=0.62*LL;
     P[GPU_idx(0, kidx)].y=1.9*LL;
     P[GPU_idx(1, kidx)].x=-1.62*LL;
@@ -332,7 +324,6 @@ __device__ void virtual_voronoi_calc_function(        int kidx,
     */
     /*
     poly_size=6;
-    int Hv[6];//={-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
     P[GPU_idx(0, kidx)].x=2.*LL;
     P[GPU_idx(0, kidx)].y=0.;
     P[GPU_idx(1, kidx)].x=LL;
@@ -374,13 +365,14 @@ t1=clock();
 
     double2 disp, pt2, v;
     double xx, yy,currentRadius;
-    unsigned int numberInCell, newidx, aa, removed;
-    int q, pp, w, j, jj, cx, cy, save_j, cc, dd, cell_rad, bin, cell_x, cell_y;
+    unsigned int numberInCell, newidx, aa, removed, removeCW;
+    int pp, w, j, jj, cx, cy, cc, dd, cell_rad, bin, cell_x, cell_y;
 
 
     v = d_pt[kidx];
-    bool flag=false;
+    bool flag=false,removeCCW,firstRemove;
 
+    int baseIdx = GPU_idx(0,kidx);
     for(jj=0; jj<poly_size; jj++)
         {
         currentRadius = Q_rad[GPU_idx(jj,kidx)];
@@ -477,70 +469,81 @@ blah3 +=1;
                     cx = checkCW(0.5*disp.x,0.5*disp.y,xx,yy,0.,0.);
                     if(cx== checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[GPU_idx(jj,kidx)].x,Q[GPU_idx(jj,kidx)].y))
                         continue;
-                    //cy=0; //which side will Q be at
-                    j=jj-1;
-                    if(j<0)j+=poly_size;
-                    m=jj;
-                    removed=0;
-                    save_j=-1;
-
 #ifdef DEBUGFLAGUP
 t4=clock();
 t1 += t4-t3;
 #endif
-                    //see which voronoi temp points fall within the same bisector as cell v
-                    for(pp=0; pp<poly_size; pp++)
-                        {
-                        q=jj-pp;
-                        if(q<0)
-                            q+=poly_size;
-                        cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[GPU_idx(q, kidx)].x,Q[GPU_idx(q, kidx)].y );
-
-                        Hv[q]=cy;
-                        if(cy==cx && save_j==-1)
-                            save_j=q;
-
-                        }
                     //Remove the voronoi test points on the opposite half sector from the cell v
                     //If more than 1 voronoi test point is removed, then also adjust the delaunay neighbors of v
+                    removeCW=0;
+                    removeCCW=false;
+                    firstRemove=true;
+                    removed=0;
+                    j=-1;
                     //which side will Q be at
-                    for(w=0; w<poly_size; w++)
+                    cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[baseIdx+poly_size-1].x,Q[baseIdx+poly_size-1].y);
+
+                    removeCW=cy;
+                    if(cy!=cx)
                         {
-                        q=(save_j+w)%poly_size;
-                        cy=Hv[q];
+                        j=poly_size-1;
+                        removed++;
+                        removeCCW=true;
+                        }
+
+                    for(w=0; w<poly_size-1; w++)
+                        {
+                        cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[baseIdx+w].x,Q[baseIdx+w].y);
                         if(cy!=cx)
                             {
-                            switch(removed)
+                            if(removeCCW==false)
                                 {
-                                case 0:
-                                    j=q;
-                                    m=(j+1)%poly_size;
-                                    removed++;
-                                    break;
-                                case 1:
-                                    m=(m+1)%poly_size;
-                                    removed++;
-                                    break;
-                                case 2:
-                                    for(pp=q; pp<poly_size-1; pp++)
+                                if(j<0)
+                                    j=w;
+                                else if(j>w)
+                                    j=w;
+                                removed++;
+                                removeCCW=true;
+                                }
+                            else
+                                {
+                                if(firstRemove==false)
+                                    {
+                                    for(pp=w; pp<poly_size-1; pp++)
                                         {
-                                        Q[GPU_idx(pp,kidx)]=Q[GPU_idx(pp+1,kidx)];
-                                        P[GPU_idx(pp,kidx)]=P[GPU_idx(pp+1,kidx)];
-                                        Q_rad[GPU_idx(pp,kidx)]=Q_rad[GPU_idx(pp+1,kidx)];
-                                        P_idx[GPU_idx(pp,kidx)]=P_idx[GPU_idx(pp+1,kidx)];
-                                        Hv[pp]=Hv[pp+1];
+                                        Q[baseIdx+pp]=Q[baseIdx+pp+1];
+                                        }
+                                    for(pp=w; pp<poly_size-1; pp++)
+                                        {
+                                        P[baseIdx+pp]=P[baseIdx+pp+1];
+                                        }
+                                    for(pp=w; pp<poly_size-1; pp++)
+                                        {
+                                        Q_rad[baseIdx+pp]=Q_rad[baseIdx+pp+1];
+                                        }
+                                    for(pp=w; pp<poly_size-1; pp++)
+                                        {
+                                        P_idx[baseIdx+pp]=P_idx[baseIdx+pp+1];
                                         }
                                     poly_size--;
-                                    if(j>q)j--;
-                                    if(save_j>q)save_j--;
-                                    m=m%poly_size;
+                                    if(j>w)
+                                        j--;
                                     w--;
-                                    break;
-                                }
+                                    }
+                                else 
+                                    firstRemove=false;
+                                removed++;
+                                }	    
                             }
-                        else if(removed>0)
-                            break;
+                            else
+                                removeCCW=false;
                         }
+                    if(removeCW!=cx && removeCCW==true && firstRemove==false)
+                        {
+                        poly_size--;
+                        if(j>w)j--;
+                        }
+
                     if(removed==0)
                         continue;
 
@@ -549,6 +552,10 @@ t6 += clock()-t4;
 t2=clock();
 #endif
                     //Introduce new (if it exists) delaunay neighbor and new voronoi points
+                    if(removed>1)
+                        m=(j+2)%poly_size;
+                    else 
+                        m=(j+1)%poly_size;
                     Circumcircle(P[GPU_idx(j,kidx)], disp, pt1, xx);
                     Circumcircle(disp, P[GPU_idx(m,kidx)], pt2, yy);
                     if(removed==1)
@@ -668,7 +675,7 @@ __global__ void gpu_voronoi_calc_global_kernel(const double2* __restrict__ d_pt,
 /*!
 device function that goes from a candidate 1-ring to an actual 1-ring
 */
-__device__ void get_oneRing_function(int kidx,
+__host__ __device__ void get_oneRing_function(int kidx,
                 const double2* __restrict__ d_pt,
                 const unsigned int* __restrict__ d_cell_sizes,
                 const int* __restrict__ d_cell_idx,
@@ -870,6 +877,7 @@ __device__ void get_oneRing_function(int kidx,
                     {
                     //if(kidx ==18 ) printf("kidx %i shifting poly by %i\n",kidx,poly_size-1-j);
                     poly_size++;
+                    #ifdef __CUDA_ARCH__
                     if(poly_size > currentMaxNeighbors)
                         {
                         atomicMax(&maximumNeighborNumber[0],poly_size);
@@ -911,6 +919,15 @@ __device__ void get_oneRing_function(int kidx,
                             rotateInMemoryRight(Q_rad,baseIdx,j,rotationSize);
                             rotateInMemoryRight(P_idx,baseIdx,j,rotationSize);
                         }
+                    #else
+                    for(pp=poly_size-2; pp>j; pp--)
+                        {
+                        Q[GPU_idx(pp+1,kidx)]=Q[GPU_idx(pp,kidx)];
+                        P[GPU_idx(pp+1,kidx)]=P[GPU_idx(pp,kidx)];
+                        Q_rad[GPU_idx(pp+1,kidx)]=Q_rad[GPU_idx(pp,kidx)];
+                        P_idx[GPU_idx(pp+1,kidx)]=P_idx[GPU_idx(pp,kidx)];
+                        }
+                    #endif
                     }
                 m=(j+1)%poly_size;
                 Q[baseIdx+m]=pt2;
@@ -1046,13 +1063,16 @@ bool gpu_voronoi_calc_no_sort(double2* d_pt,
                       Index2D ci,
                       Index2D cli,
                       int* d_fixlist,
-                      Index2D GPU_idx
+                      Index2D GPU_idx,
+                      bool GPUcompute
                       )
     {
     unsigned int block_size = THREADCOUNT;
     if (Ncells < THREADCOUNT) block_size = 32;
     unsigned int nblocks  = Ncells/block_size + 1;
-    gpu_voronoi_calc_no_sort_kernel<<<nblocks,block_size>>>(
+    if(GPUcompute==true)
+        {
+        gpu_voronoi_calc_no_sort_kernel<<<nblocks,block_size>>>(
                         d_pt,
                         d_cell_sizes,
                         d_cell_idx,
@@ -1071,11 +1091,25 @@ bool gpu_voronoi_calc_no_sort(double2* d_pt,
                         d_fixlist,
                         GPU_idx
                         );
-    HANDLE_ERROR(cudaGetLastError());
+        HANDLE_ERROR(cudaGetLastError());
 #ifdef DEBUGFLAGUP
-    cudaDeviceSynchronize();
+        cudaDeviceSynchronize();
 #endif
-    return cudaSuccess;
+        return cudaSuccess;
+        }
+    else
+        {
+        for(int tidx=0; tidx<Ncells; tidx++)
+            {
+            if(d_fixlist[tidx]>=0)
+                virtual_voronoi_calc_function(tidx,d_pt,d_cell_sizes,d_cell_idx,
+                      P_idx, P, Q, Q_rad,
+                      d_neighnum,
+                      Ncells, xsize,ysize, boxsize,Box,
+                      ci,cli,GPU_idx);
+            }
+        }
+    return true;
     }
 
 bool gpu_voronoi_calc(double2* d_pt,
@@ -1093,13 +1127,16 @@ bool gpu_voronoi_calc(double2* d_pt,
                 periodicBoundaries Box,
                 Index2D ci,
                 Index2D cli,
-                Index2D GPU_idx
+                Index2D GPU_idx,
+                bool GPUcompute
                 )
 {
-        unsigned int block_size = THREADCOUNT;
-        if (Ncells < THREADCOUNT) block_size = 32;
-        unsigned int nblocks  = Ncells/block_size + 1;
+    unsigned int block_size = THREADCOUNT;
+    if (Ncells < THREADCOUNT) block_size = 32;
+    unsigned int nblocks  = Ncells/block_size + 1;
 
+    if(GPUcompute==true)
+        {
         gpu_voronoi_calc_global_kernel<<<nblocks,block_size>>>(
                         d_pt,
                         d_cell_sizes,
@@ -1122,9 +1159,20 @@ bool gpu_voronoi_calc(double2* d_pt,
         HANDLE_ERROR(cudaGetLastError());
 #ifdef DEBUGFLAGUP
 
-    cudaDeviceSynchronize();
+        cudaDeviceSynchronize();
 #endif
         return cudaSuccess;
+        }
+    else
+        {
+        for(int tidx=0; tidx<Ncells; tidx++)
+             virtual_voronoi_calc_function(tidx,d_pt,d_cell_sizes,d_cell_idx,
+                          P_idx, P, Q, Q_rad,
+                          d_neighnum,
+                          Ncells, xsize,ysize, boxsize,Box,
+                          ci,cli,GPU_idx);
+        }
+    return true;
 };
 
 bool gpu_get_neighbors_no_sort(double2* d_pt, //the point set
@@ -1145,22 +1193,38 @@ bool gpu_get_neighbors_no_sort(double2* d_pt, //the point set
                 int* d_fixlist,
                 Index2D GPU_idx,
                 int *maximumNeighborNum,
-                int currentMaxNeighborNum
+                int currentMaxNeighborNum,
+                bool GPUcompute
                 )
     {
     unsigned int block_size = THREADCOUNT;
     if (Ncells < THREADCOUNT) block_size = 32;
     unsigned int nblocks  = Ncells/block_size + 1;
-    gpu_get_neighbors_no_sort_kernel<<<nblocks,block_size>>>(
+    if(GPUcompute==true)
+        {
+        gpu_get_neighbors_no_sort_kernel<<<nblocks,block_size>>>(
                       d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,Ncells,xsize,ysize,
                       boxsize,Box,ci,cli,d_fixlist,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
                       );
 
-    HANDLE_ERROR(cudaGetLastError());
+        HANDLE_ERROR(cudaGetLastError());
 #ifdef DEBUGFLAGUP
-    cudaDeviceSynchronize();
+        cudaDeviceSynchronize();
 #endif
-    return cudaSuccess;
+        return cudaSuccess;
+        }
+    else
+        {
+        for(int tidx=0; tidx<Ncells; tidx++)
+            {
+            if(d_fixlist[tidx]>=0)
+                get_oneRing_function(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, 
+                                 P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,
+                                 boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,
+                                 maximumNeighborNum);
+            }
+        }
+    return true;
     };
 
 bool gpu_get_neighbors(double2* d_pt, //the point set
@@ -1180,24 +1244,36 @@ bool gpu_get_neighbors(double2* d_pt, //the point set
                 Index2D cli,
                 Index2D GPU_idx,
                 int *maximumNeighborNum,
-                int currentMaxNeighborNum
+                int currentMaxNeighborNum,
+                bool GPUcompute
                 )
     {
     unsigned int block_size = THREADCOUNT;
     if (Ncells < THREADCOUNT) block_size = 32;
     unsigned int nblocks  = Ncells/block_size + 1;
 
-
-    gpu_get_neighbors_global_kernel<<<nblocks,block_size>>>(
+    if(GPUcompute==true)
+        {
+        gpu_get_neighbors_global_kernel<<<nblocks,block_size>>>(
                       d_pt,d_cell_sizes,d_cell_idx,P_idx,P,Q,Q_rad,d_neighnum,
                       Ncells,xsize,ysize,boxsize,Box,ci,cli,GPU_idx,maximumNeighborNum,currentMaxNeighborNum
                       );
 
-    HANDLE_ERROR(cudaGetLastError());
+        HANDLE_ERROR(cudaGetLastError());
 #ifdef DEBUGFLAGUP
-    cudaDeviceSynchronize();
+        cudaDeviceSynchronize();
 #endif
-    return cudaSuccess;
+        return cudaSuccess;
+        }
+    else
+        {
+        for(int tidx=0; tidx<Ncells; tidx++)
+            get_oneRing_function(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, 
+                                 P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,
+                                 boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,
+                                 maximumNeighborNum);
+        }
+    return true;
     };
 
 bool gpu_get_circumcircles(int *neighbors,

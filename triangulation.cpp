@@ -143,7 +143,7 @@ int main(int argc, char*argv[])
     //define the various command line strings that can be passed in...
     //ValueArg<T> variableName("shortflag","longFlag","description",required or not, default value,"value type",CmdLine object to add to
     ValueArg<int> programSwitchArg("z","programSwitch","an integer controlling program branch",false,0,"int",cmd);
-    ValueArg<int> gpuSwitchArg("g","USEGPU","an integer controlling which gpu to use... g < 0 uses the cpu",false,-1,"int",cmd);
+    ValueArg<int> gpuSwitchArg("g","USEGPU","an integer controlling which gpu to use... g < 0 uses the cpu",false,0,"int",cmd);
     ValueArg<int> nSwitchArg("n","Number","number of particles in the simulation",false,100,"int",cmd);
     ValueArg<int> maxIterationsSwitchArg("i","iterations","number of timestep iterations",false,1,"int",cmd);
     ValueArg<int> maxNeighSwitchArg("m","maxNeighsDefault","default maximum neighbor number for gpu triangulation routine",false,16,"int",cmd);
@@ -170,6 +170,8 @@ int main(int argc, char*argv[])
     bool GPU = false;
     if(gpuSwitch >=0)
         GPU = chooseGPU(gpuSwitch);
+    else
+        cout << "running on the CPU..." << endl;
 
     bool reproducible = true;
 
@@ -217,6 +219,10 @@ if(programSwitch >=0) //global tests
         other optimizations are done
     */
     delGPU.setSafetyMode(safetyMode);
+    if(gpuSwitch>=0)
+        delGPU.setGPUcompute(true);
+    else
+        delGPU.setGPUcompute(false);
     mProf.end("delGPU initialization");
     DelaunayCGAL cgalTriangulation;
 
@@ -293,6 +299,10 @@ else if (programSwitch == -1)
     noise.fillArray(gpuPts,0,L);
     DelaunayGPU delGPU(N, maxNeighs, cellSize, domain);
     delGPU.setSafetyMode(safetyMode);
+    if(gpuSwitch>=0)
+        delGPU.setGPUcompute(true);
+    else
+        delGPU.setGPUcompute(false);
     GPUArray<int> gpuTriangulation((unsigned int) (maxNeighs)*N);
     GPUArray<int> cellNeighborNumber((unsigned int) N);
     {
@@ -346,6 +356,10 @@ else if (programSwitch == -2 || programSwitch == -3)//test and repair routines
     noise.fillArray(gpuPts,0,L);
     DelaunayGPU delGPU(N, maxNeighs, cellSize, domain);
     delGPU.setSafetyMode(safetyMode);
+    if(gpuSwitch>=0)
+        delGPU.setGPUcompute(true);
+    else
+        delGPU.setGPUcompute(false);
     DelaunayCGAL cgalTriangulation;
 cudaDeviceSynchronize();
     GPUArray<int> gpuTriangulation((unsigned int) (maxNeighs)*N);

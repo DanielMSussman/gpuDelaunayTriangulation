@@ -16,9 +16,17 @@ A file providing an interface to the relevant cuda calls for the delaunay GPU cl
  * \brief CUDA kernels and callers for the DelaunayGPU class
  */
 
+//!construct the circumcircles int3 data structure from a triangulation
+bool gpu_get_circumcircles(int *neighbors,
+                           int *neighnum,
+                           int3 *circumcircles,
+                           int *assist,
+                           int N,
+                           Index2D &nIdx
+                          );
 
 //test the triangulation to see if it is still valid
-bool gpu_test_circumcenters(int *d_repair,
+bool gpu_test_circumcircles(int *d_repair,
                             int3 *d_ccs,
                             int Nccs,
                             double2 *d_pt,

@@ -4,14 +4,14 @@
 #include "utilities.cuh"
 
 DelaunayGPU::DelaunayGPU() :
-	cellsize(1.10), delGPUcircumcentersInitialized(false), cListUpdated(false), Ncells(0), NumCircumCenters(0)
+	cellsize(1.10), delGPUcircumcirclesInitialized(false), cListUpdated(false), Ncells(0), NumCircumcircles(0)
 {
 Box = make_shared<periodicBoundaries>();
 }
 
 DelaunayGPU::DelaunayGPU(int N, int maximumNeighborsGuess, double cellSize, PeriodicBoxPtr bx) :
-		cellsize(cellSize), delGPUcircumcentersInitialized(false), cListUpdated(false),
-		Ncells(N), NumCircumCenters(0), MaxSize(maximumNeighborsGuess)
+		cellsize(cellSize), delGPUcircumcirclesInitialized(false), cListUpdated(false),
+		Ncells(N), NumCircumcircles(0), MaxSize(maximumNeighborsGuess)
 		{
 		initialize(bx);
         if(MaxSize <4)
@@ -32,7 +32,8 @@ void DelaunayGPU::initialize(PeriodicBoxPtr bx)
         resize(MaxSize);
 
 		neighs.resize(Ncells);
-		repair.resize(Ncells+1);
+		repair.resize(Ncells);
+        delGPUcircumcircles.resize(Ncells);
         {
         ArrayHandleAsync<int> ms(maxOneRingSize,access_location::device,access_mode::read);
         ArrayHandleAsync<int>  n(neighs,access_location::device,access_mode::read);
@@ -72,16 +73,16 @@ void DelaunayGPU::initializeCellList()
 Use the GPU to copy the arrays into this class.
 Might not have a performance boost but it reduces HtD memory copies
 */
-void DelaunayGPU::setCircumcenters(GPUArray<int3> &circumcenters)
+void DelaunayGPU::setCircumcircles(GPUArray<int3> &circumcircles)
 {
-    if(delGPUcircumcenters.getNumElements()!=circumcenters.getNumElements())
+    if(delGPUcircumcircles.getNumElements()!=circumcircles.getNumElements())
     {
-    NumCircumCenters=circumcenters.getNumElements();
-    delGPUcircumcenters.resize(NumCircumCenters);
+    NumCircumcircles=circumcircles.getNumElements();
+    delGPUcircumcircles.resize(NumCircumcircles);
     }
 
-    gpu_copy_gpuarray<int3>(delGPUcircumcenters,circumcenters);
-    delGPUcircumcentersInitialized=true;
+    gpu_copy_gpuarray<int3>(delGPUcircumcircles,circumcircles);
+    delGPUcircumcirclesInitialized=true;
 };
 
 /*!
@@ -161,7 +162,7 @@ void DelaunayGPU::locallyRepairDelaunayTriangulation(GPUArray<double2> &points, 
             }
         };
 
-	delGPUcircumcentersInitialized=false;
+	delGPUcircumcirclesInitialized=false;
     }
 
 //Main function that does the complete triangulation of all points
@@ -207,7 +208,7 @@ void DelaunayGPU::GPU_GlobalDelTriangulation(GPUArray<double2> &points, GPUArray
             }
         };
 
-	delGPUcircumcentersInitialized=false;
+	delGPUcircumcirclesInitialized=false;
 }
 
 void DelaunayGPU::voronoiCalcRepairList(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum,GPUArray<int> &repairList)
@@ -397,9 +398,71 @@ bool DelaunayGPU::get_neighbors(GPUArray<double2> &points, GPUArray<int> &GPUTri
         return recomputeNeighbors;
 }
 
+void DelaunayGPU::testAndRepairDelaunayTriangulation(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum)
+    {
+    //resize circumcircles array if needed and populate:
+    if(delGPUcircumcircles.getNumElements()!= 2*points.getNumElements())
+        delGPUcircumcircles.resize(2*points.getNumElements());
+    prof.start("getCCS");
+    getCircumcirclesGPU(GPUTriangulation,cellNeighborNum);
+    prof.end("getCCS");
+
+    prof.start("cellList");
+	cList.computeGPU(points);
+    prof.end("cellList");
+
+    prof.start("testCCS");
+    {
+    ArrayHandle<int> d_repair(repair,access_location::device,access_mode::readwrite);
+    gpu_set_array(d_repair.data,-1,Ncells);
+    }
+    testTriangulation(points);
+    prof.end("testCCS");
+    
+
+
+    //locally repair
+    prof.start("repairPoints");
+    int filloutfunction = -1;//has no effect, but exists so we can easily swap sorting vs non-sorting algorithms during testing phase
+    locallyRepairDelaunayTriangulation(points,GPUTriangulation,cellNeighborNum,repair,filloutfunction);
+    prof.end("repairPoints");
+    }
+
+/*!
+only intended to be used as part of the testAndRepair sequence
+*/
+void DelaunayGPU::testTriangulation(GPUArray<double2> &points)
+    {
+    //access data handles
+    ArrayHandle<double2> d_pt(points,access_location::device,access_mode::read);
+
+    ArrayHandle<unsigned int> d_cell_sizes(cList.cell_sizes,access_location::device,access_mode::read);
+    ArrayHandle<int> d_c_idx(cList.idxs,access_location::device,access_mode::read);
+
+    ArrayHandle<int> d_repair(repair,access_location::device,access_mode::readwrite);
+
+    ArrayHandle<int3> d_ccs(delGPUcircumcircles,access_location::device,access_mode::read);
+
+    NumCircumcircles = Ncells*2;
+    gpu_test_circumcircles(d_repair.data,
+                           d_ccs.data,
+                           NumCircumcircles,
+                           d_pt.data,
+                           d_cell_sizes.data,
+                           d_c_idx.data,
+                           Ncells,
+                           cList.getXsize(),
+                           cList.getYsize(),
+                           cList.getBoxsize(),
+                           *(Box),
+                           cList.cell_indexer,
+                           cList.cell_list_indexer
+                           );
+    };
+
 /*!
 Call the GPU to test each circumcenter to see if it is still empty (i.e., how much of the
-triangulation from the last time step is still valid?). Note that because gpu_test_circumcenters
+triangulation from the last time step is still valid?). Note that because gpu_test_circumcircles
 *always* copies at least a single integer back and forth (to answer the question "did any
 circumcircle come back non-empty?" for the cpu) this function is always an implicit cuda
 synchronization event. At least until non-default streams are added to the code.
@@ -414,12 +477,12 @@ void DelaunayGPU::testTriangulation()
 
     ArrayHandle<int> d_repair(repair,access_location::device,access_mode::readwrite);
 
-    ArrayHandle<int3> d_ccs(delGPUcircumcenters,access_location::device,access_mode::read);
+    ArrayHandle<int3> d_ccs(delGPUcircumcircles,access_location::device,access_mode::read);
 
-    NumCircumCenters = Ncells*2;
-    gpu_test_circumcenters(d_repair.data,
+    NumCircumcircles = Ncells*2;
+    gpu_test_circumcircles(d_repair.data,
                            d_ccs.data,
-                           NumCircumCenters,
+                           NumCircumcircles,
                            d_pt.data,
                            d_cell_sizes.data,
                            d_c_idx.data,
@@ -433,18 +496,33 @@ void DelaunayGPU::testTriangulation()
                            );
     };
 
+void DelaunayGPU::getCircumcirclesGPU(GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum)
+    {
+    ArrayHandle<int> assist(sizeFixlist,access_location::device,access_mode::readwrite);
+    gpu_set_array(assist.data,0,1);//set the fixlist to zero, for indexing purposes
+    delGPUcircumcirclesInitialized=true;
+    ArrayHandle<int> neighbors(GPUTriangulation,access_location::device,access_mode::read);
+    ArrayHandle<int> neighnum(cellNeighborNum,access_location::device,access_mode::read);
+    ArrayHandle<int3> ccs(delGPUcircumcircles,access_location::device,access_mode::overwrite);
+    gpu_get_circumcircles(neighbors.data,
+                          neighnum.data,
+                          ccs.data,
+                          assist.data,
+                          Ncells,
+                          GPU_idx);
+    }
 
 /*!
 Converts the neighbor list data structure into a list of the three particle indices defining
-all of the circumcenters in the triangulation. Keeping this version of the topology on the GPU
+all of the circumcircles in the triangulation. Keeping this version of the topology on the GPU
 allows for fast testing of what points need to be retriangulated.
 */
-void DelaunayGPU::getCircumcenters(GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum)
+void DelaunayGPU::getCircumcircles(GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum)
     {
-    delGPUcircumcentersInitialized=true;
+    delGPUcircumcirclesInitialized=true;
     ArrayHandle<int> neighnum(cellNeighborNum,access_location::host,access_mode::read);
     ArrayHandle<int> ns(GPUTriangulation,access_location::host,access_mode::read);
-    ArrayHandle<int3> h_ccs(delGPUcircumcenters,access_location::host,access_mode::overwrite);
+    ArrayHandle<int3> h_ccs(delGPUcircumcircles,access_location::host,access_mode::overwrite);
 
     int totaln = 0;
     int cidx = 0;
@@ -470,7 +548,7 @@ void DelaunayGPU::getCircumcenters(GPUArray<int> &GPUTriangulation, GPUArray<int
                 };
             };
         };
-    NumCircumCenters = cidx;
+    NumCircumcircles = cidx;
 
     if((totaln != 6*Ncells || cidx != 2*Ncells))
         {

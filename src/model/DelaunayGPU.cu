@@ -191,7 +191,7 @@ __device__ inline bool cellBucketInsideAngle(const double2 v, const int cx, cons
   vertices of that triangle is empty. Use the cell list to ensure that only checks of nearby
   particles are required.
   */
-__global__ void gpu_test_circumcenters_kernel(int* __restrict__ d_repair,
+__global__ void gpu_test_circumcircles_kernel(int* __restrict__ d_repair,
                                               const int3* __restrict__ d_circumcircles,
                                               const double2* __restrict__ d_pt,
                                               const unsigned int* __restrict__ d_cell_sizes,
@@ -353,7 +353,7 @@ int maxCellsChecked=0;
 int spotcheck=18;
 int counter= 0 ;
 if(kidx==spotcheck) printf("VP initial poly_size = %i\n",poly_size);
-unsigned int t1,t2,t3,t4,t5,t6,t7;
+unsigned int t1,t2,t3,t4,t6,t7;
 t6=0;
 #endif
 
@@ -617,11 +617,13 @@ __global__ void gpu_voronoi_calc_no_sort_kernel(const double2* __restrict__ d_pt
     unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
     if (tidx >= Ncells)return;
     if(d_fixlist[tidx] >= 0)
+        {
         virtual_voronoi_calc_function(tidx,d_pt,d_cell_sizes,d_cell_idx,
                           P_idx, P, Q, Q_rad,
                           d_neighnum,
                           Ncells, xsize,ysize, boxsize,Box,
                           ci,cli,GPU_idx);
+        };
     return;
     }
 
@@ -990,8 +992,6 @@ __global__ void gpu_get_neighbors_global_kernel(const double2* __restrict__ d_pt
                 int currentMaxNeighborNum
                 )
     {
-
-
     unsigned int tidx = blockDim.x * blockIdx.x + threadIdx.x;
     if (tidx >= Ncells)return;
 
@@ -1000,7 +1000,27 @@ __global__ void gpu_get_neighbors_global_kernel(const double2* __restrict__ d_pt
     return;
     }//end function
 
+__global__ void gpu_get_circumcircles_kernel(int *neighbors, int *neighnum, int3 *ccs, int *assist, int N,Index2D GPU_idx)
+    {
+    unsigned int cell = blockDim.x * blockIdx.x + threadIdx.x;
+    if (cell >= N)return;
 
+    int nmax = neighnum[cell];
+    int circumcircleIdx;
+    int3 cc;
+    cc.x=cell;
+    cc.y = neighbors[GPU_idx(nmax-1,cell)];
+    for (int jj = 0; jj < nmax; ++jj)
+        {
+        cc.z = neighbors[GPU_idx(jj,cell)];
+        if(cc.x < cc.y && cc.x < cc.z)
+            {
+            circumcircleIdx = atomicAdd(&assist[0],1);
+            ccs[circumcircleIdx] = cc;
+            }
+        cc.y = cc.z;
+        }
+    }
 
 /////////////////////////////////////////////////////////////
 //////
@@ -1178,9 +1198,34 @@ bool gpu_get_neighbors(double2* d_pt, //the point set
     return cudaSuccess;
     };
 
+bool gpu_get_circumcircles(int *neighbors,
+                           int *neighnum,
+                           int3 *circumcircles,
+                           int *assist,
+                           int N,
+                           Index2D &nIdx
+                          )
+    {
+    unsigned int block_size = THREADCOUNT;
+    if (N < THREADCOUNT) block_size = 32;
+    unsigned int nblocks  = N/block_size + 1;
+
+    gpu_get_circumcircles_kernel<<<nblocks,block_size>>>(
+                            neighbors,
+                            neighnum,
+                            circumcircles,
+                            assist,
+                            N,
+                            nIdx);
+    HANDLE_ERROR(cudaGetLastError());
+#ifdef DEBUGFLAGUP
+    cudaDeviceSynchronize();
+#endif
+    return cudaSuccess;
+    }
 
 //!call the kernel to test every circumcenter to see if it's empty
-bool gpu_test_circumcenters(int *d_repair,
+bool gpu_test_circumcircles(int *d_repair,
                             int3 *d_ccs,
                             int Nccs,
                             double2 *d_pt,
@@ -1199,7 +1244,7 @@ bool gpu_test_circumcenters(int *d_repair,
     if (Nccs < THREADCOUNT) block_size = 32;
     unsigned int nblocks  = Nccs/block_size + 1;
 
-    gpu_test_circumcenters_kernel<<<nblocks,block_size>>>(
+    gpu_test_circumcircles_kernel<<<nblocks,block_size>>>(
                             d_repair,
                             d_ccs,
                             d_pt,

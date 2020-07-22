@@ -711,7 +711,7 @@ __device__ void get_oneRing_function(int kidx,
         cell_y = (int)floor(pt1.y/boxsize) % ysize;
         cell_rad = min((int) ceil(currentRadius/boxsize),xsize/2);
         /*cells are currently checked in a spiral search from the central cell to the outermost...
-        current algorithm searches CCW, with the spiral being {{0,0},{1,0},{1,-1},...,{max,max}}.
+        current algorithm searches CW, with the spiral being {{0,0},{1,0},{1,-1},...,{max,max}}.
         A small optimization could select the spiral used based on the quadrant relative to the
         base point
         */

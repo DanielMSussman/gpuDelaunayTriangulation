@@ -5,40 +5,39 @@
 
 DelaunayGPU::DelaunayGPU() :
 	cellsize(1.10), cListUpdated(false), Ncells(0), NumCircumcircles(0), GPUcompute(false)
-{
+    {
 Box = make_shared<periodicBoundaries>();
-}
+    }
 
-DelaunayGPU::DelaunayGPU(int N, int maximumNeighborsGuess, double cellSize, PeriodicBoxPtr bx) :
-		cellsize(cellSize), cListUpdated(false),
-		Ncells(N), NumCircumcircles(0), MaxSize(maximumNeighborsGuess),
-        GPUcompute(true)
-		{
-		initialize(bx);
-        if(MaxSize <4)
-            MaxSize = 4;//the initial enclosing polygon is always at least 4 points...
-		}
+DelaunayGPU::DelaunayGPU(int N, int maximumNeighborsGuess, double cellSize, PeriodicBoxPtr bx)
+    {
+	initialize(N,maximumNeighborsGuess,cellSize,bx);
+	}
 
 //!initialization
-void DelaunayGPU::initialize(PeriodicBoxPtr bx)
-		{
-        prof.start("initialization");
-		setBox(bx);
-		sizeFixlist.resize(1);
-        maxOneRingSize.resize(1);
-        {
-        ArrayHandle<int> ms(maxOneRingSize);
-        ms.data[0] = MaxSize;
-        }
-        resize(MaxSize);
+void DelaunayGPU::initialize(int N, int maximumNeighborsGuess, double cellSize, PeriodicBoxPtr bx)
+    {
+    prof.start("initialization");
+    Ncells = N;
+    NumCircumcircles = 0;
+    MaxSize = max(4,maximumNeighborsGuess);
+    cellsize=cellSize;
+    cListUpdated = false;
+    setBox(bx);
+    sizeFixlist.resize(1);
+    maxOneRingSize.resize(1);
+    {
+    ArrayHandle<int> ms(maxOneRingSize);
+    ms.data[0] = MaxSize;
+    }
+    resize(MaxSize);
 
-		neighs.resize(Ncells);
-		repair.resize(Ncells);
-        delGPUcircumcircles.resize(Ncells);
-		initializeCellList();
-        prof.end("initialization");
-		}
-
+    neighs.resize(Ncells);
+    repair.resize(Ncells);
+    delGPUcircumcircles.resize(Ncells);
+    initializeCellList();
+    prof.end("initialization");
+    }
 
 //Resize the relevant array for the triangulation
 void DelaunayGPU::resize(const int nmax)
@@ -92,6 +91,9 @@ void DelaunayGPU::setList(double csize, GPUArray<double2> &points)
 //and lists to get ready for the triangulation (previous initializaton required!).
 void DelaunayGPU::updateList(GPUArray<double2> &points)
     {
+    if(Ncells != points.getNumElements())
+    	cList.setNp(Ncells);
+
     if(GPUcompute)
         {
         cList.computeGPU(points);
@@ -117,9 +119,8 @@ void DelaunayGPU::locallyRepairDelaunayTriangulation(GPUArray<double2> &points, 
     if(cListUpdated==false)
 		{
         prof.start("cellList");
-		cList.computeGPU(points);
+        updateList(points);
         prof.end("cellList");
-		cListUpdated=true;
 		}
     bool recompute = true;
     while (recompute)
@@ -131,12 +132,8 @@ void DelaunayGPU::locallyRepairDelaunayTriangulation(GPUArray<double2> &points, 
             }
         else
             {
-        prof.start("vcrCPU");
             voronoiCalcRepairList_CPU(points, GPUTriangulation, cellNeighborNum,repairList);
-        prof.end("vcrCPU");
-        prof.start("ctrCPU");
             recompute = computeTriangulationRepairList_CPU(points, GPUTriangulation, cellNeighborNum,repairList);
-        prof.end("ctrCPU");
             }
         if(recompute)
             {
@@ -154,23 +151,21 @@ void DelaunayGPU::globalDelaunayTriangulation(GPUArray<double2> &points, GPUArra
         cout<<"No points in GPU DT"<<endl;
         return;
         }
+    if(currentN!=Ncells || GPUTriangulation.getNumElements()!=GPUVoroCur.getNumElements())
+		{
+        Ncells = currentN;
+        MaxSize = GPUTriangulation.getNumElements()/Ncells;
+        resize(MaxSize);
+        initializeCellList();
+        cListUpdated = false;
+		}
     if(cListUpdated==false)
 		{
         prof.start("cellList");
-		cList.computeGPU(points);
+        updateList(points);
         prof.end("cellList");
 		cListUpdated=true;
 		}
-    if(currentN!=Ncells)
-		{
-		printf("GPU DT Global: Bug in GPU DT\n");
-        throw std::exception();
-		}
-	if(GPUTriangulation.getNumElements()!=GPUVoroCur.getNumElements())
-      {
-      printf("GPU DT Global: Incorrect sizes in the GPUArrays\n");
-      throw std::exception();
-      }
 
     size_fixlist=Ncells;
     bool recompute = true;

@@ -21,15 +21,15 @@ class DelaunayGPU
     {
 	public:
 
-		//!Constructor -- not to be used right now
+		//!blank constructor
 		DelaunayGPU();
         //!Constructor + initialiation
         DelaunayGPU(int N, int maximumNeighborsGuess, double cellSize, PeriodicBoxPtr bx);
 		//!Destructor
 		~DelaunayGPU(){};
 
-        //!primitive initialization function
-        void initialize(PeriodicBoxPtr bx);
+        //!initialization function
+        void initialize(int N, int maximumNeighborsGuess, double cellSize, PeriodicBoxPtr bx);
 
         //!function call to change the maximum number of neighbors per point
         void resize(const int nmax);
@@ -72,6 +72,8 @@ class DelaunayGPU
         PeriodicBoxPtr Box;
 
         bool cListUpdated;
+        //! The maximum number of neighbors any point has
+        int MaxSize;
 
     private:
         //Functions used by the GPU DT
@@ -115,8 +117,6 @@ class DelaunayGPU
         GPUArray<int> maxOneRingSize;
 
         int Ncells;
-        //! The maximum number of neighbors any point has
-        int MaxSize;
         int NumCircumcircles;
 
         //!A utility list -- currently used to compute circumcenter sets on the GPU

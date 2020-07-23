@@ -180,17 +180,13 @@ __device__ inline bool cellBucketInsideAngle(const double2 v, const int cx, cons
     return false;
     }
 
-/*!
-  Independently check every triangle in the Delaunay mesh to see if the cirumcircle defined by the
-  vertices of that triangle is empty. Use the cell list to ensure that only checks of nearby
-  particles are required.
-  */
-__global__ void gpu_test_circumcircles_kernel(int* __restrict__ d_repair,
+//per-circumcircle test function
+__host__ __device__ void test_circumcircle_kernel_function(int idx,
+                                              int* __restrict__ d_repair,
                                               const int3* __restrict__ d_circumcircles,
                                               const double2* __restrict__ d_pt,
                                               const unsigned int* __restrict__ d_cell_sizes,
                                               const int* __restrict__ d_cell_idx,
-                                              int Nccs,
                                               int xsize,
                                               int ysize,
                                               double boxsize,
@@ -199,11 +195,6 @@ __global__ void gpu_test_circumcircles_kernel(int* __restrict__ d_repair,
                                               Index2D cli
                                               )
     {
-    // read in the index that belongs to this thread
-    unsigned int idx = blockDim.x * blockIdx.x + threadIdx.x;
-    if (idx >= Nccs)
-        return;
-
     //the indices of particles forming the circumcircle
     int3 i1 = d_circumcircles[idx];
     //the vertex we will take to be the origin, and its cell position
@@ -267,6 +258,35 @@ __global__ void gpu_test_circumcircles_kernel(int* __restrict__ d_repair,
           d_repair[i1.y] = i1.y;
           d_repair[i1.z] = i1.z;
         };
+    return;
+    }
+/*!
+  Independently check every triangle in the Delaunay mesh to see if the cirumcircle defined by the
+  vertices of that triangle is empty. Use the cell list to ensure that only checks of nearby
+  particles are required.
+  */
+__global__ void gpu_test_circumcircles_kernel(
+                                              int* __restrict__ d_repair,
+                                              const int3* __restrict__ d_circumcircles,
+                                              const double2* __restrict__ d_pt,
+                                              const unsigned int* __restrict__ d_cell_sizes,
+                                              const int* __restrict__ d_cell_idx,
+                                              int Nccs,
+                                              int xsize,
+                                              int ysize,
+                                              double boxsize,
+                                              periodicBoundaries Box,
+                                              Index2D ci,
+                                              Index2D cli
+                                              )
+    {
+    // read in the index that belongs to this thread
+    unsigned int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    if (idx >= Nccs)
+        return;
+    test_circumcircle_kernel_function(idx,d_repair,d_circumcircles,d_pt,
+                                      d_cell_sizes,d_cell_idx,xsize,ysize,
+                                      boxsize,Box,ci,cli);
 
     return;
     };
@@ -696,7 +716,6 @@ __host__ __device__ void get_oneRing_function(int kidx,
                 int *maximumNeighborNumber
                 )
     {
-
     //note that many of these variable names get re-used in different contexts throughout the kernel... take care
     double2 disp, pt1, pt2, v,currentQ;// v1, v2;
     double rr, xx, yy,currentRadius;
@@ -1315,14 +1334,17 @@ bool gpu_test_circumcircles(int *d_repair,
                             double boxsize,
                             periodicBoundaries &Box,
                             Index2D &ci,
-                            Index2D &cli
+                            Index2D &cli,
+                            bool GPUcompute
                             )
     {
     unsigned int block_size = THREADCOUNT;
     if (Nccs < THREADCOUNT) block_size = 32;
     unsigned int nblocks  = Nccs/block_size + 1;
 
-    gpu_test_circumcircles_kernel<<<nblocks,block_size>>>(
+    if(GPUcompute)
+        {
+        gpu_test_circumcircles_kernel<<<nblocks,block_size>>>(
                             d_repair,
                             d_ccs,
                             d_pt,
@@ -1337,11 +1359,20 @@ bool gpu_test_circumcircles(int *d_repair,
                             cli
                             );
 
-    HANDLE_ERROR(cudaGetLastError());
+        HANDLE_ERROR(cudaGetLastError());
 #ifdef DEBUGFLAGUP
-    cudaDeviceSynchronize();
+        cudaDeviceSynchronize();
 #endif
-    return cudaSuccess;
+        return cudaSuccess;
+        }
+    else
+        {
+        for(int idx = 0; idx < Nccs; ++idx)
+            test_circumcircle_kernel_function(idx,d_repair,d_ccs,d_pt,
+                                      d_cell_sizes,d_idx,xsize,ysize,
+                                      boxsize,Box,ci,cli);
+        }
+    return true;
     };
 
 /** @} */ //end of group declaration

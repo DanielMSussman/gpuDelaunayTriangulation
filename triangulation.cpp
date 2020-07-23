@@ -269,7 +269,7 @@ cudaDeviceSynchronize();
         mProf.start("delGPU triangulation");
         prof.start();
 
-        delGPU.GPU_GlobalDelTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
+        delGPU.globalDelaunayTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
         cudaDeviceSynchronize();
         prof.end();
         cudaProfilerStop();
@@ -372,7 +372,7 @@ cudaDeviceSynchronize();
 cudaDeviceSynchronize();
     printf("global routine to begin with a putative triangulation...");
     mProf.start("delGPU initial global repair");
-    delGPU.GPU_GlobalDelTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
+    delGPU.globalDelaunayTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
 cudaDeviceSynchronize();
     mProf.end("delGPU initial global repair");
     printf("...done\n");

@@ -4,13 +4,13 @@
 #include "utilities.cuh"
 
 DelaunayGPU::DelaunayGPU() :
-	cellsize(1.10), delGPUcircumcirclesInitialized(false), cListUpdated(false), Ncells(0), NumCircumcircles(0), GPUcompute(false)
+	cellsize(1.10), cListUpdated(false), Ncells(0), NumCircumcircles(0), GPUcompute(false)
 {
 Box = make_shared<periodicBoundaries>();
 }
 
 DelaunayGPU::DelaunayGPU(int N, int maximumNeighborsGuess, double cellSize, PeriodicBoxPtr bx) :
-		cellsize(cellSize), delGPUcircumcirclesInitialized(false), cListUpdated(false),
+		cellsize(cellSize), cListUpdated(false),
 		Ncells(N), NumCircumcircles(0), MaxSize(maximumNeighborsGuess),
         GPUcompute(true)
 		{
@@ -131,20 +131,22 @@ void DelaunayGPU::locallyRepairDelaunayTriangulation(GPUArray<double2> &points, 
             }
         else
             {
+        prof.start("vcrCPU");
             voronoiCalcRepairList_CPU(points, GPUTriangulation, cellNeighborNum,repairList);
+        prof.end("vcrCPU");
+        prof.start("ctrCPU");
             recompute = computeTriangulationRepairList_CPU(points, GPUTriangulation, cellNeighborNum,repairList);
+        prof.end("ctrCPU");
             }
         if(recompute)
             {
             GPUTriangulation.resize(MaxSize*currentN);
             }
         };
-
-	delGPUcircumcirclesInitialized=false;
     }
 
 //Main function that does the complete triangulation of all points
-void DelaunayGPU::GPU_GlobalDelTriangulation(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum)
+void DelaunayGPU::globalDelaunayTriangulation(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum)
     {
 	int currentN = points.getNumElements();
 	if(currentN==0)
@@ -191,8 +193,7 @@ void DelaunayGPU::GPU_GlobalDelTriangulation(GPUArray<double2> &points, GPUArray
             GPUTriangulation.resize(MaxSize*currentN);
             }
         };
-	delGPUcircumcirclesInitialized=false;
-}
+    }
 
 ////////////////////////////////////////////////////
 //////
@@ -231,7 +232,7 @@ void DelaunayGPU::voronoiCalcRepairList_CPU(GPUArray<double2> &points, GPUArray<
                         cList.cell_list_indexer,
                         d_repair.data,
                         GPU_idx,
-			GPUcompute
+			            GPUcompute
                         );
     };
 
@@ -389,6 +390,45 @@ bool DelaunayGPU::get_neighbors_CPU(GPUArray<double2> &points, GPUArray<int> &GP
         };
         return recomputeNeighbors;
 }
+
+/*!
+only intended to be used as part of the testAndRepair sequence
+*/
+void DelaunayGPU::testTriangulationCPU(GPUArray<double2> &points)
+    {
+    {
+    ArrayHandle<int> d_repair(repair,access_location::host,access_mode::overwrite);
+    for(int ii = 0; ii < Ncells; ++ii)
+        d_repair.data[ii] = -1;
+    }
+    //access data handles
+    ArrayHandle<double2> d_pt(points,access_location::host,access_mode::read);
+
+    ArrayHandle<unsigned int> d_cell_sizes(cList.cell_sizes,access_location::host,access_mode::read);
+    ArrayHandle<int> d_c_idx(cList.idxs,access_location::host,access_mode::read);
+
+    ArrayHandle<int> d_repair(repair,access_location::host,access_mode::readwrite);
+
+    ArrayHandle<int3> d_ccs(delGPUcircumcircles,access_location::host,access_mode::read);
+
+    NumCircumcircles = Ncells*2;
+    gpu_test_circumcircles(d_repair.data,
+                           d_ccs.data,
+                           NumCircumcircles,
+                           d_pt.data,
+                           d_cell_sizes.data,
+                           d_c_idx.data,
+                           Ncells,
+                           cList.getXsize(),
+                           cList.getYsize(),
+                           cList.getBoxsize(),
+                           *(Box),
+                           cList.cell_indexer,
+                           cList.cell_list_indexer,
+                           GPUcompute
+                           );
+    };
+
 
 ////////////////////////////////////////////////////
 //////
@@ -594,40 +634,31 @@ void DelaunayGPU::testAndRepairDelaunayTriangulation(GPUArray<double2> &points, 
     if(delGPUcircumcircles.getNumElements()!= 2*points.getNumElements())
         delGPUcircumcircles.resize(2*points.getNumElements());
     prof.start("getCCS");
-    getCircumcirclesGPU(GPUTriangulation,cellNeighborNum);
-#ifdef DEBUGFLAGUP
-cudaDeviceSynchronize();
-#endif
+    if(GPUcompute)
+        getCircumcirclesGPU(GPUTriangulation,cellNeighborNum);
+    else
+        getCircumcirclesCPU(GPUTriangulation,cellNeighborNum);
+
     prof.end("getCCS");
 
     prof.start("cellList");
-	cList.computeGPU(points);
+    if(GPUcompute)
+	    cList.computeGPU(points);
+    else
+	    cList.compute(points);
     cListUpdated=true;
-#ifdef DEBUGFLAGUP
-cudaDeviceSynchronize();
-#endif
     prof.end("cellList");
 
-    prof.start("resetRepairList");
-    {
-    ArrayHandle<int> d_repair(repair,access_location::device,access_mode::readwrite);
-    gpu_set_array(d_repair.data,-1,Ncells);
-    }
-#ifdef DEBUGFLAGUP
-cudaDeviceSynchronize();
-#endif
-    prof.end("resetRepairList");
     prof.start("testCCS");
-    testTriangulation(points);
-#ifdef DEBUGFLAGUP
-cudaDeviceSynchronize();
-#endif
+    if(GPUcompute)
+        testTriangulation(points);
+    else
+        testTriangulationCPU(points);
     prof.end("testCCS");
     
     //locally repair
     prof.start("repairPoints");
-    int filloutfunction = -1;//has no effect, but exists so we can easily swap sorting vs non-sorting algorithms during testing phase
-    locallyRepairDelaunayTriangulation(points,GPUTriangulation,cellNeighborNum,repair,filloutfunction);
+    locallyRepairDelaunayTriangulation(points,GPUTriangulation,cellNeighborNum,repair);
 #ifdef DEBUGFLAGUP
 cudaDeviceSynchronize();
 #endif
@@ -639,6 +670,10 @@ only intended to be used as part of the testAndRepair sequence
 */
 void DelaunayGPU::testTriangulation(GPUArray<double2> &points)
     {
+    {
+    ArrayHandle<int> d_repair(repair,access_location::device,access_mode::readwrite);
+    gpu_set_array(d_repair.data,-1,Ncells);
+    }
     //access data handles
     ArrayHandle<double2> d_pt(points,access_location::device,access_mode::read);
 
@@ -662,51 +697,18 @@ void DelaunayGPU::testTriangulation(GPUArray<double2> &points)
                            cList.getBoxsize(),
                            *(Box),
                            cList.cell_indexer,
-                           cList.cell_list_indexer
+                           cList.cell_list_indexer,
+                           GPUcompute
                            );
-    };
-
-/*!
-Call the GPU to test each circumcenter to see if it is still empty (i.e., how much of the
-triangulation from the last time step is still valid?). Note that because gpu_test_circumcircles
-*always* copies at least a single integer back and forth (to answer the question "did any
-circumcircle come back non-empty?" for the cpu) this function is always an implicit cuda
-synchronization event. At least until non-default streams are added to the code.
-*/
-void DelaunayGPU::testTriangulation()
-    {
-    //access data handles
-    ArrayHandle<double2> d_pt(pts,access_location::device,access_mode::read);
-
-    ArrayHandle<unsigned int> d_cell_sizes(cList.cell_sizes,access_location::device,access_mode::read);
-    ArrayHandle<int> d_c_idx(cList.idxs,access_location::device,access_mode::read);
-
-    ArrayHandle<int> d_repair(repair,access_location::device,access_mode::readwrite);
-
-    ArrayHandle<int3> d_ccs(delGPUcircumcircles,access_location::device,access_mode::read);
-
-    NumCircumcircles = Ncells*2;
-    gpu_test_circumcircles(d_repair.data,
-                           d_ccs.data,
-                           NumCircumcircles,
-                           d_pt.data,
-                           d_cell_sizes.data,
-                           d_c_idx.data,
-                           Ncells,
-                           cList.getXsize(),
-                           cList.getYsize(),
-                           cList.getBoxsize(),
-                           *(Box),
-                           cList.cell_indexer,
-                           cList.cell_list_indexer
-                           );
+#ifdef DEBUGFLAGUP
+cudaDeviceSynchronize();
+#endif
     };
 
 void DelaunayGPU::getCircumcirclesGPU(GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum)
     {
     ArrayHandle<int> assist(sizeFixlist,access_location::device,access_mode::readwrite);
     gpu_set_array(assist.data,0,1);//set the fixlist to zero, for indexing purposes
-    delGPUcircumcirclesInitialized=true;
     ArrayHandle<int> neighbors(GPUTriangulation,access_location::device,access_mode::read);
     ArrayHandle<int> neighnum(cellNeighborNum,access_location::device,access_mode::read);
     ArrayHandle<int3> ccs(delGPUcircumcircles,access_location::device,access_mode::overwrite);
@@ -716,6 +718,9 @@ void DelaunayGPU::getCircumcirclesGPU(GPUArray<int> &GPUTriangulation, GPUArray<
                           assist.data,
                           Ncells,
                           GPU_idx);
+#ifdef DEBUGFLAGUP
+cudaDeviceSynchronize();
+#endif
     }
 
 /*!
@@ -723,35 +728,30 @@ Converts the neighbor list data structure into a list of the three particle indi
 all of the circumcircles in the triangulation. Keeping this version of the topology on the GPU
 allows for fast testing of what points need to be retriangulated.
 */
-void DelaunayGPU::getCircumcircles(GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum)
+void DelaunayGPU::getCircumcirclesCPU(GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum)
     {
-    delGPUcircumcirclesInitialized=true;
     ArrayHandle<int> neighnum(cellNeighborNum,access_location::host,access_mode::read);
     ArrayHandle<int> ns(GPUTriangulation,access_location::host,access_mode::read);
     ArrayHandle<int3> h_ccs(delGPUcircumcircles,access_location::host,access_mode::overwrite);
 
     int totaln = 0;
     int cidx = 0;
-    bool fail = false;
+    int3 cc;
     for (int nn = 0; nn < Ncells; ++nn)
         {
+        cc.x = nn;
         int nmax = neighnum.data[nn];
         totaln+=nmax;
+        cc.y = ns.data[GPU_idx(nmax-1,nn)];
         for (int jj = 0; jj < nmax; ++jj)
             {
-            if (fail) continue;
-
-            int n1 = ns.data[GPU_idx(jj,nn)];
-            int ne2 = jj + 1;
-            if (jj == nmax-1)  ne2=0;
-            int n2 = ns.data[GPU_idx(ne2,nn)];
-            if (nn < n1 && nn < n2)
+            cc.z = ns.data[GPU_idx(jj,nn)];
+            if (cc.x < cc.y && cc.x < cc.z)
                 {
-                h_ccs.data[cidx].x = nn;
-                h_ccs.data[cidx].y = n1;
-                h_ccs.data[cidx].z = n2;
+                h_ccs.data[cidx] = cc;
                 cidx+=1;
-                };
+                }
+            cc.y = cc.z;
             };
         };
     NumCircumcircles = cidx;

@@ -38,7 +38,8 @@ bool gpu_test_circumcircles(int *d_repair,
                             double boxsize,
                             periodicBoundaries &Box,
                             Index2D &ci,
-                            Index2D &cli
+                            Index2D &cli,
+                            bool GPUcompute
                             );
 
 bool gpu_voronoi_calc(double2* d_pt,

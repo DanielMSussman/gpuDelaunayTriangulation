@@ -45,24 +45,23 @@ class DelaunayGPU
         void setCellSize(double cs){cellsize=cs;};
 
         //!build the auxiliary data structure containing the indices of the particle circumcircles from the neighbor list
-        void getCircumcircles(GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
+        void getCircumcirclesCPU(GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
 
         //go through GPU routines
         void setGPUcompute(bool flag)
         {
             GPUcompute=flag;
         };
-        //!Tests the circumcircles of the DT to check if they overlap any new poin
-        void testTriangulation();
 
-        //!Globally and locally construct the triangulation via GPU
-        //!Functions used by the GPU DT
-        void GPU_GlobalDelTriangulation(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
-
-        void locallyRepairDelaunayTriangulation(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum,GPUArray<int> &repairList, int numberToRepair);
+        //!Given a point set, fill the int arrays with a Delaunay triangulation
+        void globalDelaunayTriangulation(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
 
         //!Given a point set and a putative triangulation of it, check the validity and replace input triangulation with correct one
         void testAndRepairDelaunayTriangulation(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
+
+        //!Repair the parts of the triangulation associated with the given repairList
+        void locallyRepairDelaunayTriangulation(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum,GPUArray<int> &repairList, int numberToRepair=-1);
+
 
         multiProfiler prof;
 
@@ -77,6 +76,7 @@ class DelaunayGPU
     private:
         //Functions used by the GPU DT
         void testTriangulation(GPUArray<double2> &points);
+        void testTriangulationCPU(GPUArray<double2> &points);
         //!build the auxiliary data structure on the GPU
         void getCircumcirclesGPU(GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
 
@@ -110,8 +110,6 @@ class DelaunayGPU
         GPUArray<double2> pts;
         GPUArray<int3> delGPUcircumcircles;
         GPUArray<int>repair;
-
-        bool delGPUcircumcirclesInitialized;
 
         //!An array that holds a single int keeping track of maximum 1-ring size
         GPUArray<int> maxOneRingSize;

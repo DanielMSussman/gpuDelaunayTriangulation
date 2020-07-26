@@ -6,7 +6,6 @@
 DelaunayGPU::DelaunayGPU() :
 	cellsize(1.10), cListUpdated(false), Ncells(0), NumCircumcircles(0), GPUcompute(false)
     {
-Box = make_shared<periodicBoundaries>();
     }
 
 DelaunayGPU::DelaunayGPU(int N, int maximumNeighborsGuess, double cellSize, PeriodicBoxPtr bx)
@@ -42,6 +41,7 @@ void DelaunayGPU::initialize(int N, int maximumNeighborsGuess, double cellSize, 
 //Resize the relevant array for the triangulation
 void DelaunayGPU::resize(const int nmax)
     {
+    printf("resizing delGPU data structures: MaxSize = %i\n",nmax);
     MaxSize=nmax;
     GPUVoroCur.resize(nmax*Ncells);
     GPUDelNeighsPos.resize(nmax*Ncells);
@@ -154,8 +154,8 @@ void DelaunayGPU::globalDelaunayTriangulation(GPUArray<double2> &points, GPUArra
     if(currentN!=Ncells || GPUTriangulation.getNumElements()!=GPUVoroCur.getNumElements())
 		{
         Ncells = currentN;
-        MaxSize = GPUTriangulation.getNumElements()/Ncells;
         resize(MaxSize);
+        GPUTriangulation.resize(GPUVoroCur.getNumElements());
         initializeCellList();
         cListUpdated = false;
 		}
@@ -543,24 +543,24 @@ bool DelaunayGPU::computeTriangulationRepairList(GPUArray<double2> &points, GPUA
                                 d_repair.data,
                                 GPU_idx,
                                 d_ms.data,
-                                currentMaxOneRingSize
-                                ,GPUcompute
+                                currentMaxOneRingSize,
+                                GPUcompute
                                 );
         }
         if(safetyMode)
-        {
+            {
                 {//check initial maximum ring_size allocated
-                        ArrayHandle<int> h_ms(maxOneRingSize, access_location::host,access_mode::read);
-                        postCallMaxOneRingSize = h_ms.data[0];
-                }
-                //printf("initial and post %i %i\n", currentMaxOneRingSize,postCallMaxOneRingSize);
-                if(postCallMaxOneRingSize > currentMaxOneRingSize)
+                ArrayHandle<int> h_ms(maxOneRingSize, access_location::host,access_mode::read);
+                postCallMaxOneRingSize = h_ms.data[0];
+            }
+            //printf("initial and post %i %i\n", currentMaxOneRingSize,postCallMaxOneRingSize);
+            if(postCallMaxOneRingSize > currentMaxOneRingSize)
                 {
-                        recomputeNeighbors = true;
-                        printf("resizing potential neighbors from %i to %i and re-computing...\n",currentMaxOneRingSize,postCallMaxOneRingSize);
-                        resize(postCallMaxOneRingSize);
+                recomputeNeighbors = true;
+                printf("Resizing potential neighbors from %i to %i and re-computing (computeTriangulationRepairList function)...\n",currentMaxOneRingSize,postCallMaxOneRingSize);
+                resize(postCallMaxOneRingSize);
                 }
-        };
+            };
         return recomputeNeighbors;
     }
 
@@ -616,7 +616,7 @@ bool DelaunayGPU::get_neighbors(GPUArray<double2> &points, GPUArray<int> &GPUTri
                 if(postCallMaxOneRingSize > currentMaxOneRingSize)
                 {
                         recomputeNeighbors = true;
-                        printf("resizing potential neighbors from %i to %i and re-computing...\n",currentMaxOneRingSize,postCallMaxOneRingSize);
+                        printf("resizing potential neighbors from %i to %i and re-computing (get_neighbors function)...\n",currentMaxOneRingSize,postCallMaxOneRingSize);
                         resize(postCallMaxOneRingSize);
                 }
         };

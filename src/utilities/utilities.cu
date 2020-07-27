@@ -1,7 +1,7 @@
-#include "gpuUtilities.cuh"
+#include "utilities.cuh"
 #include <cuda_runtime.h>
 
-/*! \file gpuUtilities.cu
+/*! \file utilities.cu
   defines kernel callers and kernels for some simple GPU array calculations
 
  \addtogroup utilityKernels

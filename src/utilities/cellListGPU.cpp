@@ -5,7 +5,7 @@
 #include "cuda_runtime.h"
 #include "cellListGPU.cuh"
 #include "cellListGPU.h"
-#include "gpuUtilities.cuh"
+#include "utilities.cuh"
 
 /*! \file cellListGPU.cpp */
 

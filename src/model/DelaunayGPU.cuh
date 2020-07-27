@@ -16,9 +16,17 @@ A file providing an interface to the relevant cuda calls for the delaunay GPU cl
  * \brief CUDA kernels and callers for the DelaunayGPU class
  */
 
+//!construct the circumcircles int3 data structure from a triangulation
+bool gpu_get_circumcircles(int *neighbors,
+                           int *neighnum,
+                           int3 *circumcircles,
+                           int *assist,
+                           int N,
+                           Index2D &nIdx
+                          );
 
 //test the triangulation to see if it is still valid
-bool gpu_test_circumcenters(int *d_repair,
+bool gpu_test_circumcircles(int *d_repair,
                             int3 *d_ccs,
                             int Nccs,
                             double2 *d_pt,
@@ -30,14 +38,10 @@ bool gpu_test_circumcenters(int *d_repair,
                             double boxsize,
                             periodicBoundaries &Box,
                             Index2D &ci,
-                            Index2D &cli
+                            Index2D &cli,
+                            bool GPUcompute,
+			    unsigned int OMPThreadsNum
                             );
-
-//!Organize the repair array to send off to be triangulated
-bool gpu_build_repair( int *d_repair,
-                   int Np,
-                   int *Nf
-                   );
 
 bool gpu_voronoi_calc(double2* d_pt,
                       unsigned int* d_cell_sizes,
@@ -54,10 +58,9 @@ bool gpu_voronoi_calc(double2* d_pt,
                       periodicBoundaries Box,
                       Index2D ci,
                       Index2D cli,
-                      int* d_fixlist,
-                      int Nf,
                       Index2D GPU_idx,
-                      bool globalRoutine=false
+                      bool GPUcompute,
+		      unsigned int OMPThreadsNum
                       );
 
 //call the voronoi_calc kernels *only* on elements of the fixlist, but without any sorting
@@ -77,7 +80,9 @@ bool gpu_voronoi_calc_no_sort(double2* d_pt,
                       Index2D ci,
                       Index2D cli,
                       int* d_fixlist,
-                      Index2D GPU_idx
+                      Index2D GPU_idx,
+                      bool GPUcompute,
+		      unsigned int OMPThreadsNum
                       );
 
 //the meat of the triangulation algorithm, calculates the actual del neighs of cell i
@@ -97,12 +102,11 @@ bool gpu_get_neighbors(double2* d_pt,
                       periodicBoundaries Box,
                       Index2D ci,
                       Index2D cli,
-                      int* d_fixlist,
-                      int Nf,
                       Index2D GPU_idx,
                       int* maximumNeighborNum,
                       int currentMaxNeighborNum,
-                      bool globalRoutine=false
+                      bool GPUcompute,
+		      unsigned int OMPThreadsNum
                       );
 
 bool gpu_get_neighbors_no_sort(double2* d_pt,
@@ -123,7 +127,9 @@ bool gpu_get_neighbors_no_sort(double2* d_pt,
                       int* d_fixlist,
                       Index2D GPU_idx,
                       int* maximumNeighborNum,
-                      int currentMaxNeighborNum
+                      int currentMaxNeighborNum,
+                      bool GPUcompute,
+		      unsigned int OMPThreadsNum
                       );
 
 /** @} */ //end of group declaration

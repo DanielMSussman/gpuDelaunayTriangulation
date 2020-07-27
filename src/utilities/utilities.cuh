@@ -4,7 +4,7 @@
 #include "gpuarray.h"
 
 /*!
- \file gpuUtilities.cuh
+ \file utilities.cuh
 A file providing an interface to the relevant cuda calls for some simple GPU array manipulations
 */
 

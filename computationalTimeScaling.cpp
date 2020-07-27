@@ -12,6 +12,9 @@
 #include "indexer.h"
 #include <ctime>
 
+#include <thread>
+#include <cpuid.h>
+
 #include <algorithm>
 #include "hilbert_curve.hpp"
 
@@ -162,32 +165,39 @@ int main(int argc, char*argv[])
     bool GPU = false;
     if(gpuSwitch >=0)
         GPU = chooseGPU(gpuSwitch);
+    else
+        {
+	char CPUBrandString[0x40];
+	unsigned int CPUInfo[4] = {0,0,0,0};
+	__cpuid(0x80000000, CPUInfo[0], CPUInfo[1], CPUInfo[2], CPUInfo[3]);
+	unsigned int nExIds = CPUInfo[0];
+
+	memset(CPUBrandString, 0, sizeof(CPUBrandString));
+
+	for (unsigned int i = 0x80000000; i <= nExIds; ++i)
+		{
+    		__cpuid(i, CPUInfo[0], CPUInfo[1], CPUInfo[2], CPUInfo[3]);
+
+    		if (i == 0x80000002)
+	        	memcpy(CPUBrandString, CPUInfo, sizeof(CPUInfo));
+		else if (i == 0x80000003)
+			memcpy(CPUBrandString + 16, CPUInfo, sizeof(CPUInfo));
+		else if (i == 0x80000004)
+			memcpy(CPUBrandString + 32, CPUInfo, sizeof(CPUInfo));
+		}
+
+        cout << "using "<<CPUBrandString <<"     Available threads: "<< std::thread::hardware_concurrency() <<"     Threads requested: "<<abs(gpuSwitch) <<"\n"<< endl;
+        }
 
     bool reproducible = true;
-    cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop,gpuSwitch);
-
 
     vector<int> ns;
-    ns.push_back(100);
-    ns.push_back(200);
-    ns.push_back(400);
-    ns.push_back(800);
-    ns.push_back(1600);
-    ns.push_back(3200);
-    ns.push_back(6400);
-    ns.push_back(12800);
-    ns.push_back(25000);
-    ns.push_back(50000);
-    ns.push_back(100000);
-    ns.push_back(200000);
-    ns.push_back(400000);
-    ns.push_back(800000);
-    ns.push_back(1600000);
+    for (int p2 = 7; p2 < 22; ++p2)
+        ns.push_back(pow(2,p2));
     time_t now = time(0);
     tm *ltm = localtime(&now);
     char fname[256];
-    sprintf(fname,"timing_gpu%i_dateTime_%i_%i_%i.txt",gpuSwitch,ltm->tm_mon+1,ltm->tm_mday,ltm->tm_hour);
+    sprintf(fname,"timing_gpu%i_z%i_dateTime_%i_%i_%i.txt",gpuSwitch,programSwitch,ltm->tm_mon+1,ltm->tm_mday,ltm->tm_hour);
 
     for(int nn = 0; nn < ns.size();++nn)
     {
@@ -228,6 +238,13 @@ int main(int argc, char*argv[])
     ArrayHandleAsync<int> cnn(cellNeighborNumber,access_location::device,access_mode::readwrite);
     }
     delGPU.setSafetyMode(safetyMode);
+    if(gpuSwitch>=0)
+        delGPU.setGPUcompute(true);
+    else
+        {
+        delGPU.setGPUcompute(false);
+        delGPU.setOMPthreads(abs(gpuSwitch));
+        }
     DelaunayCGAL cgalTriangulation;
 
     for (int iteration = 0; iteration<maximumIterations; ++iteration)
@@ -270,7 +287,7 @@ cudaDeviceSynchronize();
         delGPU.updateList(gpuPts);
         delGPUTiming.start();//profile just the triangulation routine
         mProf.start("delGPU triangulation");
-        delGPU.GPU_GlobalDelTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
+        delGPU.globalDelaunayTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
         cudaDeviceSynchronize();
         mProf.end("delGPU triangulation");
         mProf.end("delGPU total timing");

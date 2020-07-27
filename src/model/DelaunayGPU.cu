@@ -1120,8 +1120,8 @@ bool gpu_voronoi_calc_no_sort(double2* d_pt,
         }
     else
         {
-	if(OMPThreadsNum==1)
-	    {
+    	if(OMPThreadsNum==1)
+	        {
             for(int tidx=0; tidx<Ncells; tidx++)
                 {
                 if(d_fixlist[tidx]>=0)
@@ -1131,10 +1131,10 @@ bool gpu_voronoi_calc_no_sort(double2* d_pt,
                       Ncells, xsize,ysize, boxsize,Box,
                       ci,cli,GPU_idx);
                 }
-	    }
-	else
-	    {
-	    #pragma omp parallel for num_threads(OMPThreadsNum)
+	        }
+    	else
+	        {
+	        #pragma omp parallel for num_threads(OMPThreadsNum)
             for(int tidx=0; tidx<Ncells; tidx++)
                 {
                 if(d_fixlist[tidx]>=0)
@@ -1144,7 +1144,7 @@ bool gpu_voronoi_calc_no_sort(double2* d_pt,
                       Ncells, xsize,ysize, boxsize,Box,
                       ci,cli,GPU_idx);
                 }
-	    }
+	        }
         }
     return true;
     }
@@ -1203,25 +1203,25 @@ bool gpu_voronoi_calc(double2* d_pt,
         }
     else
         {
-	if(OMPThreadsNum==1)
-	    {
+    	if(OMPThreadsNum==1)
+	        {
             for(int tidx=0; tidx<Ncells; tidx++)
                  virtual_voronoi_calc_function(tidx,d_pt,d_cell_sizes,d_cell_idx,
                           P_idx, P, Q, Q_rad,
                           d_neighnum,
                           Ncells, xsize,ysize, boxsize,Box,
                           ci,cli,GPU_idx);
-	    }
-	else
-	    {
-	    #pragma omp parallel for num_threads(OMPThreadsNum)
+	        }
+    	else
+	        {
+	        #pragma omp parallel for num_threads(OMPThreadsNum)
             for(int tidx=0; tidx<Ncells; tidx++)
                  virtual_voronoi_calc_function(tidx,d_pt,d_cell_sizes,d_cell_idx,
                           P_idx, P, Q, Q_rad,
                           d_neighnum,
                           Ncells, xsize,ysize, boxsize,Box,
                           ci,cli,GPU_idx);
-	    }
+	        }
         }
     return true;
 };
@@ -1267,8 +1267,8 @@ bool gpu_get_neighbors_no_sort(double2* d_pt, //the point set
         }
     else
         {
-	if(OMPThreadsNum==1)
-	    {
+    	if(OMPThreadsNum==1)
+	        {
             for(int tidx=0; tidx<Ncells; tidx++)
                 {
                 if(d_fixlist[tidx]>=0)
@@ -1277,9 +1277,9 @@ bool gpu_get_neighbors_no_sort(double2* d_pt, //the point set
                                  boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,
                                  maximumNeighborNum);
                 }
-	    }
-	else
-	    {
+	        }
+    	else
+	        {
             #pragma omp parallel for num_threads(OMPThreadsNum)
             for(int tidx=0; tidx<Ncells; tidx++)
                 {
@@ -1289,7 +1289,7 @@ bool gpu_get_neighbors_no_sort(double2* d_pt, //the point set
                                  boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,
                                  maximumNeighborNum);
                 }
-	    }
+	        }
         }
     return true;
     };
@@ -1335,23 +1335,23 @@ bool gpu_get_neighbors(double2* d_pt, //the point set
         }
     else
         {
-	if(OMPThreadsNum==1)
-	    {
+    	if(OMPThreadsNum==1)
+	        {
             for(int tidx=0; tidx<Ncells; tidx++)
                 get_oneRing_function(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx,
                                  P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,
                                  boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,
                                  maximumNeighborNum);
-	    }
-	else
-	    {
-	    #pragma omp parallel for num_threads(OMPThreadsNum)
+	        }
+    	else
+	        {
+	        #pragma omp parallel for num_threads(OMPThreadsNum)
             for(int tidx=0; tidx<Ncells; tidx++)
                 get_oneRing_function(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, 
                                  P,Q,Q_rad,d_neighnum, Ncells,xsize,ysize,
                                  boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,
                                  maximumNeighborNum);
-	    }
+	        }
         }
     return true;
     };
@@ -1429,22 +1429,22 @@ bool gpu_test_circumcircles(int *d_repair,
         }
     else
         {
-	if(OMPThreadsNum==1)
-	    {
+	    if(OMPThreadsNum==1)
+	        {
             for(int idx = 0; idx < Nccs; ++idx)
             test_circumcircle_kernel_function(idx,d_repair,d_ccs,d_pt,
                                       d_cell_sizes,d_idx,xsize,ysize,
                                       boxsize,Box,ci,cli);
-	    }
-	else
-	    {
-	    #pragma omp parallel for num_threads(OMPThreadsNum)
+	        }
+	    else
+	        {
+	        #pragma omp parallel for num_threads(OMPThreadsNum)
             for(int idx = 0; idx < Nccs; ++idx)
                 test_circumcircle_kernel_function(idx,d_repair,d_ccs,d_pt,
                                       d_cell_sizes,d_idx,xsize,ysize,
                                       boxsize,Box,ci,cli);
             }
-	}
+	    }
     return true;
     };
 

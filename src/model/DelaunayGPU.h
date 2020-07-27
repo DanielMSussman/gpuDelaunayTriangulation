@@ -12,7 +12,7 @@ using namespace std;
  //!A GPU-based class for locally constructing the Delaunay triangulation of part of a point set
 /*!
  *GPU implementation of the DT.
- *It makes use of a locallity lema described in (doi: 10.1109/ISVD.2012.9).
+ *It makes use of a locallity lemma described in (doi: 10.1109/ISVD.2012.9).
  *It will only make the repair of the topology in case it is necessary.
  *Steps are detailed as in paper.
  */
@@ -49,14 +49,14 @@ class DelaunayGPU
 
         //!use GPU routines
         void setGPUcompute(bool flag)
-        {
+            {
             GPUcompute=flag;
-        };
+            };
 
-	void setOMPthreads(unsigned int num)
-	{
-	    OMPThreadsNum=num;
-	};
+    	void setOMPthreads(unsigned int num)
+	            {
+        	    OMPThreadsNum=num;
+                };
 
 
         //!Given a point set, fill the int arrays with a Delaunay triangulation

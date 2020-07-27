@@ -30,6 +30,8 @@ standard library headers
 #include <cassert>
 #include <vector>
 #include <omp.h>
+#include <thread>
+#include <cpuid.h>
 
 using namespace std;
 
@@ -70,13 +72,41 @@ inline bool fileExists(const std::string& name)
     ifstream f(name.c_str());
     return f.good();
     }
+
+__host__ inline bool chooseCPU(int gpuSwitch,bool verbose = false)
+    {
+	char CPUBrandString[0x40];
+	unsigned int CPUInfo[4] = {0,0,0,0};
+	__cpuid(0x80000000, CPUInfo[0], CPUInfo[1], CPUInfo[2], CPUInfo[3]);
+	unsigned int nExIds = CPUInfo[0];
+
+	memset(CPUBrandString, 0, sizeof(CPUBrandString));
+
+	for (unsigned int i = 0x80000000; i <= nExIds; ++i)
+		{
+    		__cpuid(i, CPUInfo[0], CPUInfo[1], CPUInfo[2], CPUInfo[3]);
+
+    		if (i == 0x80000002)
+	        	memcpy(CPUBrandString, CPUInfo, sizeof(CPUInfo));
+		else if (i == 0x80000003)
+			memcpy(CPUBrandString + 16, CPUInfo, sizeof(CPUInfo));
+		else if (i == 0x80000004)
+			memcpy(CPUBrandString + 32, CPUInfo, sizeof(CPUInfo));
+		}
+
+    if(verbose)
+        cout << "using "<<CPUBrandString <<"     Available threads: "<< std::thread::hardware_concurrency() <<"     Threads requested: "<<abs(gpuSwitch) <<"\n"<< endl;
+    else
+        cout << "Running on the CPU with " << abs(gpuSwitch) << " openMP-based threads" << endl;
+    return false;
+    }
+
 //!Get basic stats about the chosen GPU (if it exists)
 __host__ inline bool chooseGPU(int USE_GPU,bool verbose = false)
     {
     if(USE_GPU < 0)
         {
-        cout << "running on the CPU..." << endl;
-        return false;
+        return chooseCPU(abs(USE_GPU),true);
         }
     int nDev;
     cudaGetDeviceCount(&nDev);

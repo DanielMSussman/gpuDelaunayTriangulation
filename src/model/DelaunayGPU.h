@@ -26,6 +26,12 @@ class DelaunayGPU
 		//!Destructor
 		~DelaunayGPU(){};
 
+        //!Given a point set, fill the int arrays with a Delaunay triangulation
+        void globalDelaunayTriangulation(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
+
+        //!Given a point set and a putative triangulation of it, check the validity and replace input triangulation with correct one
+        void testAndRepairDelaunayTriangulation(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
+
         //!initialization function
         void initialize(int N, int maximumNeighborsGuess, double cellSize, PeriodicBoxPtr bx);
 
@@ -55,17 +61,6 @@ class DelaunayGPU
 	            {
         	    OMPThreadsNum=num;
                 };
-
-
-        //!Given a point set, fill the int arrays with a Delaunay triangulation
-        void globalDelaunayTriangulation(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
-
-        //!Given a point set and a putative triangulation of it, check the validity and replace input triangulation with correct one
-        void testAndRepairDelaunayTriangulation(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
-
-        //!Repair the parts of the triangulation associated with the given repairList
-        void locallyRepairDelaunayTriangulation(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum,GPUArray<int> &repairList, int numberToRepair=-1);
-
 
         //!A lightweight profiler to use when timing the functionality of this class
         multiProfiler prof;
@@ -115,6 +110,9 @@ class DelaunayGPU
     protected:
     
         //All of these arrays should be accessed by the GPU_idx!
+
+        //!Repair the parts of the triangulation associated with the given repairList
+        void locallyRepairDelaunayTriangulation(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum,GPUArray<int> &repairList, int numberToRepair=-1);
 
         //!A helper array containing the positions of voronoi vertices associated with every 1-ring
         GPUArray<double2> GPUVoroCur;

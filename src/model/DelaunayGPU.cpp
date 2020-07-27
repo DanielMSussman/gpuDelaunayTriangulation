@@ -120,6 +120,7 @@ void DelaunayGPU::locallyRepairDelaunayTriangulation(GPUArray<double2> &points, 
             GPUTriangulation.resize(MaxSize*currentN);
             }
         };
+    cListUpdated=false;
     }
 
 //Main function that does the complete triangulation of all points
@@ -137,15 +138,10 @@ void DelaunayGPU::globalDelaunayTriangulation(GPUArray<double2> &points, GPUArra
         resize(MaxSize);
         GPUTriangulation.resize(GPUVoroCur.getNumElements());
         initializeCellList();
-        cListUpdated = false;
 		}
-    if(cListUpdated==false)
-		{
-        prof.start("cellList");
-        updateList(points);
-        prof.end("cellList");
-		cListUpdated=true;
-		}
+    prof.start("cellList");
+    updateList(points);
+    prof.end("cellList");
 
     bool recompute = true;
     while (recompute)

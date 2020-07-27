@@ -28,6 +28,7 @@ void printVec(vector<int> &a)
     cout << endl;
     }
 
+//To test the triangulation speed of more regular point patterns, initialize in a randomized square lattice
 void squareLattice(GPUArray<double2> &A, noiseSource &noise, int N)
     {
     cout << "initializing in generic square lattice..." << endl;
@@ -51,6 +52,7 @@ void squareLattice(GPUArray<double2> &A, noiseSource &noise, int N)
     cout <<  ii << " ...done" << endl;
     }
 
+//resort points according to their order along a hilbert curve
 void hilbertSortArray(GPUArray<double2> &A)
     {
     cout << "hilbert sorting...";
@@ -78,7 +80,7 @@ void hilbertSortArray(GPUArray<double2> &A)
     cout << "...done" << endl;
     }
 
-//! Compare neighbors found by different algorithsm. vector<vector< int> > a la CGAL, vs GPUArray<int> together with another GPUArray<int> for number of neighbors each cell has
+// Compare neighbors found by different algorithsm. vector<vector< int> > a la CGAL, vs GPUArray<int> together with another GPUArray<int> for number of neighbors each cell has
 void compareTriangulation(vector<vector<int> > &neighs, GPUArray<int> &gNeighs, GPUArray<int> &gNeighborNum, bool verbose = true)
     {
     int failedCells = 0;
@@ -128,20 +130,26 @@ void compareTriangulation(vector<vector<int> > &neighs, GPUArray<int> &gNeighs, 
         }
     printf("total number of mismatched cells = %i\n",failedCells);
     };
-/*!
-Testing shell for gpuDelaunayTriangulation
+
+/*
+Testing shell for gpuDelaunayTriangulation. the -z command line flag calls various code branches:
+-z 0 : compute a triangulation of a point set drawn at random (uniformly) in a square domain. Compare the result with CGAL
+-z 1 : same as -z 0, but don't perform a CGAL triangulation and compare
+-z 2 : same as -z 0, but perform a hilbert sort of the point set first
+-z 3 : same as -z 2, but don't perform a CGAL triangulation and compare
+-z 4 : same as -z 0, but choose points to be a distorted square lattice and perform a hilbert sort of the point set first
+-z 5 : same as -z 4, but don't perform a CGAL triangulation and compare
+
+-z -2 : check the testAndRepair function by (a) globally triangulating a point set, (b) randomly moving some of the points, and (c) calling the test and repair function. Compare with the results of a CGAL triangulation at each step
+-z -1 : same as -z -2, except don't do any CGAL work or checking
 */
 int main(int argc, char*argv[])
 {
     // wrap tclap in a try block
     try
     {
-    //First, we set up a basic command line parser...
-    //      cmd("command description message", delimiter, version string)
     CmdLine cmd("basic testing of gpuDelaunayTriangulation", ' ', "V0.1");
 
-    //define the various command line strings that can be passed in...
-    //ValueArg<T> variableName("shortflag","longFlag","description",required or not, default value,"value type",CmdLine object to add to
     ValueArg<int> programSwitchArg("z","programSwitch","an integer controlling program branch",false,0,"int",cmd);
     ValueArg<int> gpuSwitchArg("g","USEGPU","an integer controlling which gpu to use... g < 0 uses the cpu",false,0,"int",cmd);
     ValueArg<int> nSwitchArg("n","Number","number of particles in the simulation",false,100,"int",cmd);
@@ -152,7 +160,6 @@ int main(int argc, char*argv[])
     ValueArg<double> localTestSwitch("l","localFraction","fraction of points to repair", false,0.05,"int",cmd);
     ValueArg<double> cellListSizeSwitch("c","cellSize","linear dimension of cell list", false,1.0,"int",cmd);
 
-    //parse the arguments
     cmd.parse( argc, argv );
 
     int programSwitch = programSwitchArg.getValue();
@@ -160,20 +167,20 @@ int main(int argc, char*argv[])
     int N = nSwitchArg.getValue();
     int maximumIterations = maxIterationsSwitchArg.getValue();
     int maxNeighs = maxNeighSwitchArg.getValue();
-    
+    int gpuSwitch = gpuSwitchArg.getValue();
     bool safetyMode  = safetyModeSwitch.getValue() ==0 ? false : true;
-
     double localFraction = localTestSwitch.getValue();
     double cellSize = cellListSizeSwitch.getValue();
 
-    int gpuSwitch = gpuSwitchArg.getValue();
     bool GPU = false;
     //chooseGPU will call chooseCPU if gpuSwitch < 0
     GPU = chooseGPU(gpuSwitch);
 
-    bool reproducible = true;
+    bool reproducible = true;//set to false if you want the RNG to be different each time. reproducibility for testing the code, though
 
-    multiProfiler mProf;
+    multiProfiler mProf;//a few lightweigt profilers for various rough timings
+    profiler prof("triangulation");
+    profiler prof2("total");
 
     mProf.start("noise initialize");
     noiseSource noise(reproducible);
@@ -190,8 +197,6 @@ int main(int argc, char*argv[])
 
 if(programSwitch >=0) //global tests
     {
-    profiler prof("triangulation");
-    profiler prof2("total");
     //for timing tests, iteratate a random triangulation maximumIterations number of times
     cout << "iterating over " << maximumIterations << " random triangulations of " << N << " points distributed in a square domain"  << endl;
     mProf.addName("triangulation comparison");
@@ -203,6 +208,7 @@ if(programSwitch >=0) //global tests
     mProf.addName("delGPU initialization");
 
     mProf.start("delGPU initialization");
+    //maxNeighs is a guess for the maximum number of neighbors any point will have; this controls the size of various data structures in the delGPU class
     DelaunayGPU delGPU(N, maxNeighs, cellSize, domain);
     GPUArray<int> gpuTriangulation((unsigned int) (maxNeighs)*N);
     GPUArray<int> cellNeighborNumber((unsigned int) N);
@@ -212,11 +218,13 @@ if(programSwitch >=0) //global tests
     ArrayHandleAsync<int> cnn(cellNeighborNumber,access_location::device,access_mode::readwrite);
     }
     /*
-        If true, will successfully rescue triangulation even if maxNeighs is too small.
-        this is currently very slow (can be improved a lot), and will be once 
-        other optimizations are done
+    If safetyMode is true, the code will check whether any point has more neighbors than maxNeighs, and,
+    if so, will enlarge the data structures and recompute the triangulation.
+    This comes at the expense of some (small) device-to-host transfers, so if for some reason you have a 
+    guarantee that maxNeighs will not be exceeded, set to true
     */
     delGPU.setSafetyMode(safetyMode);
+
     if(gpuSwitch>=0)
         delGPU.setGPUcompute(true);
     else
@@ -225,12 +233,12 @@ if(programSwitch >=0) //global tests
 	    delGPU.setOMPthreads(abs(gpuSwitch));
         }
     mProf.end("delGPU initialization");
-    DelaunayCGAL cgalTriangulation;
 
-    //When built in non-debug mode, the first iteration is much slower than subsequent ones... just time later ones
+    DelaunayCGAL cgalTriangulation;
+//these cudaDeviceSynchronize() calls are not needed, and are here for more accurate timing of the various components of the triangulating process
+cudaDeviceSynchronize();
     for (int iteration = 0; iteration<maximumIterations; ++iteration)
         {
-cudaDeviceSynchronize();
         mProf.start("generate points");
         if(programSwitch <=1)
             noise.fillArray(gpuPts,0.,L);
@@ -260,18 +268,16 @@ cudaDeviceSynchronize();
             }//end CGAL test
 
 cudaDeviceSynchronize();
+        //similarly, the cudaProfiler calls are just for...profiling
         cudaProfilerStart();
         prof2.start();
         mProf.start("delGPU total timing");
-        mProf.start("delGPU cellList");
-        delGPU.updateList(gpuPts);
 cudaDeviceSynchronize();
-        mProf.end("delGPU cellList");
         mProf.start("delGPU triangulation");
         prof.start();
 
         delGPU.globalDelaunayTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber);
-        cudaDeviceSynchronize();
+cudaDeviceSynchronize();
         prof.end();
         cudaProfilerStop();
         mProf.end("delGPU triangulation");
@@ -291,64 +297,7 @@ cudaDeviceSynchronize();
     prof.printVec();
     prof2.printVec();
     }//end global tests
-else if (programSwitch == -1)
-    {
-    vector<int> repairList(N);
-    for(int ii = 0; ii < N; ++ii)
-        repairList[ii]=ii;
-    int localNumber = floor(localFraction*N);
-    noise.fillArray(gpuPts,0,L);
-    DelaunayGPU delGPU(N, maxNeighs, cellSize, domain);
-    delGPU.setSafetyMode(safetyMode);
-    if(gpuSwitch>=0)
-        delGPU.setGPUcompute(true);
-    else
-        delGPU.setGPUcompute(false);
-    GPUArray<int> gpuTriangulation((unsigned int) (maxNeighs)*N);
-    GPUArray<int> cellNeighborNumber((unsigned int) N);
-    {
-    ArrayHandle<double2> p(gpuPts,access_location::device,access_mode::readwrite);
-    ArrayHandle<int> t(gpuTriangulation,access_location::device,access_mode::readwrite);
-    ArrayHandle<int> c(cellNeighborNumber,access_location::device,access_mode::readwrite);
-    }
-    printf("randomly repairing %i points (out of %i) %i times\n",localNumber,N,maximumIterations);
-    for (int iteration = 0; iteration<maximumIterations; ++iteration)
-        {
-        std::random_shuffle(repairList.begin(),repairList.end());
-        //GPUArray<int> setRep((unsigned int) N+1);
-        GPUArray<int> setRep((unsigned int) N);
-        {
-        ArrayHandle<int> sr(setRep);
-        for (int ii =0; ii < setRep.getNumElements(); ++ii)
-            {
-            sr.data[ii]=-1;
-            }
-        for (int ii =0; ii < localNumber; ++ii)
-            {
-            //sr.data[ii]=repairList[ii];
-            sr.data[repairList[ii]]=repairList[ii];
-            }
-        }
-        {
-        ArrayHandle<int> sr(setRep,access_location::device,access_mode::readwrite);
-        }
-        mProf.start("delGPU local triangulation");
-        cudaProfilerStart();
-            mProf.start("delGPU cellList");
-            delGPU.updateList(gpuPts);
-cudaDeviceSynchronize();
-            mProf.end("delGPU cellList");
-        mProf.start("delGPU localRepair only");
-        delGPU.locallyRepairDelaunayTriangulation(gpuPts,gpuTriangulation,cellNeighborNumber,setRep,localNumber);
-cudaDeviceSynchronize();
-        mProf.end("delGPU localRepair only");
-        cudaProfilerStop();
-        mProf.end("delGPU local triangulation");
-        }
-    cout << endl;
-    mProf.print();
-    }
-else if (programSwitch == -2 || programSwitch == -3)//test and repair routines
+else if (programSwitch == -1 || programSwitch == -2)//test and repair routines
     {
     vector<int> repairList(N);
     for(int ii = 0; ii < N; ++ii)
@@ -394,8 +343,8 @@ cudaDeviceSynchronize();
             }
         }
         //make sure the triangulation is wrong:
-if(programSwitch == -2)
-{
+    if(programSwitch == -2)
+    {
         cout << " comparing with CGAL to see the old triangulation is wrong" << endl;
         {
         ArrayHandle<double2> gps(gpuPts,access_location::host,access_mode::read);
@@ -413,7 +362,7 @@ if(programSwitch == -2)
         {
         ArrayHandle<double2> p(gpuPts,access_location::device,access_mode::readwrite);
         }
-}
+    }
         cout << "using delGPU to testAndRepair" << endl;
 cudaDeviceSynchronize();
         mProf.start("delGPU testAndRepair");
@@ -421,27 +370,26 @@ cudaDeviceSynchronize();
 cudaDeviceSynchronize();
         mProf.end("delGPU testAndRepair");
 
-if(programSwitch == -2)
-{
-        cout << "re-triangulating with CGAL for comparison..." << endl;
+    if(programSwitch == -2)
+    {
+    cout << "re-triangulating with CGAL for comparison..." << endl;
         {
         ArrayHandle<double2> gps(gpuPts,access_location::host,access_mode::read);
         for (int ii = 0; ii < N; ++ii)
             {
             pts[ii]=make_pair(Point(gps.data[ii].x,gps.data[ii].y),ii);
-            }
-        mProf.start("CGAL triangulation");
-        cgalTriangulation.PeriodicTriangulation(pts,L,0,0,L);
-        mProf.end("CGAL triangulation");
+        }
+    mProf.start("CGAL triangulation");
+    cgalTriangulation.PeriodicTriangulation(pts,L,0,0,L);
+    mProf.end("CGAL triangulation");
         }//end CGAL test
-        mProf.start("triangulation comparison");
+    mProf.start("triangulation comparison");
 
-        printf("comparing repaired triangulation with CGAL...");
-        compareTriangulation(cgalTriangulation.allneighs, gpuTriangulation,cellNeighborNumber);
-        printf("...done\n");
-        mProf.end("triangulation comparison");
-}
-
+    printf("comparing repaired triangulation with CGAL...");
+    compareTriangulation(cgalTriangulation.allneighs, gpuTriangulation,cellNeighborNumber);
+    printf("...done\n");
+    mProf.end("triangulation comparison");
+    }
 
         }
 #ifdef DEBUGFLAGUP
@@ -456,6 +404,5 @@ if(programSwitch == -2)
 //
     } catch (ArgException &e)  // catch any exceptions
     { cerr << "error: " << e.error() << " for arg " << e.argId() << endl; }
-
     return 0;
 };

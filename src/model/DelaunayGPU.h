@@ -47,11 +47,17 @@ class DelaunayGPU
         //!build the auxiliary data structure containing the indices of the particle circumcircles from the neighbor list
         void getCircumcirclesCPU(GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
 
-        //go through GPU routines
+        //!use GPU routines
         void setGPUcompute(bool flag)
         {
             GPUcompute=flag;
         };
+
+	void setOMPthreads(unsigned int num)
+	{
+	    OMPThreadsNum=num;
+	};
+
 
         //!Given a point set, fill the int arrays with a Delaunay triangulation
         void globalDelaunayTriangulation(GPUArray<double2> &points, GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum);
@@ -122,8 +128,10 @@ class DelaunayGPU
         //!A utility list -- currently used to compute circumcenter sets on the GPU
         GPUArray<int> sizeFixlist;
         int size_fixlist;
-        //flag that tells the code to use either CPU or GPU routines
+        //!A flag that tells the code to use either CPU or GPU routines
         bool GPUcompute;
+	//!Variable that keeps the number of threads used by OpenMP
+	unsigned int OMPThreadsNum=1;
 
         //!A 2dIndexer for computing where in the GPUArray to look for a given particles neighbors GPU
         Index2D GPU_idx;

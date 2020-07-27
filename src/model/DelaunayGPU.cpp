@@ -227,7 +227,8 @@ void DelaunayGPU::voronoiCalcRepairList_CPU(GPUArray<double2> &points, GPUArray<
                         cList.cell_list_indexer,
                         d_repair.data,
                         GPU_idx,
-			            GPUcompute
+  	                GPUcompute,
+			OMPThreadsNum
                         );
     };
 
@@ -263,7 +264,8 @@ void DelaunayGPU::Voronoi_Calc_CPU(GPUArray<double2> &points, GPUArray<int> &GPU
                         cList.cell_indexer,
                         cList.cell_list_indexer,
                         GPU_idx,
-			GPUcompute
+			GPUcompute,
+			OMPThreadsNum
                         );
 
     }
@@ -306,7 +308,8 @@ bool DelaunayGPU::computeTriangulationRepairList_CPU(GPUArray<double2> &points, 
                                 GPU_idx,
                                 d_ms.data,
                                 currentMaxOneRingSize,
-				GPUcompute
+				GPUcompute,
+				OMPThreadsNum
                                     );
         }
         if(safetyMode)
@@ -364,7 +367,8 @@ bool DelaunayGPU::get_neighbors_CPU(GPUArray<double2> &points, GPUArray<int> &GP
                                 GPU_idx,
                                 d_ms.data,
                                 currentMaxOneRingSize,
-				GPUcompute
+				GPUcompute,
+				OMPThreadsNum
                             );
 
 
@@ -420,7 +424,8 @@ void DelaunayGPU::testTriangulationCPU(GPUArray<double2> &points)
                            *(Box),
                            cList.cell_indexer,
                            cList.cell_list_indexer,
-                           GPUcompute
+                           GPUcompute,
+			   OMPThreadsNum
                            );
     };
 
@@ -463,7 +468,8 @@ void DelaunayGPU::voronoiCalcRepairList(GPUArray<double2> &points, GPUArray<int>
                         cList.cell_list_indexer,
                         d_repair.data,
                         GPU_idx,
-                        GPUcompute
+                        GPUcompute,
+			OMPThreadsNum
                         );
     };
 
@@ -499,7 +505,8 @@ void DelaunayGPU::Voronoi_Calc(GPUArray<double2> &points, GPUArray<int> &GPUTria
                         cList.cell_indexer,
                         cList.cell_list_indexer,
                         GPU_idx,
-                        GPUcompute
+                        GPUcompute,
+			OMPThreadsNum
                         );
 
 
@@ -543,8 +550,9 @@ bool DelaunayGPU::computeTriangulationRepairList(GPUArray<double2> &points, GPUA
                                 d_repair.data,
                                 GPU_idx,
                                 d_ms.data,
-                                currentMaxOneRingSize
-                                ,GPUcompute
+                                currentMaxOneRingSize,
+				GPUcompute,
+				OMPThreadsNum
                                 );
         }
         if(safetyMode)
@@ -603,7 +611,8 @@ bool DelaunayGPU::get_neighbors(GPUArray<double2> &points, GPUArray<int> &GPUTri
                                 GPU_idx,
                                 d_ms.data,
                                 currentMaxOneRingSize,
-                                GPUcompute
+                                GPUcompute,
+				OMPThreadsNum
                             );
             }
         if(safetyMode)
@@ -693,7 +702,8 @@ void DelaunayGPU::testTriangulation(GPUArray<double2> &points)
                            *(Box),
                            cList.cell_indexer,
                            cList.cell_list_indexer,
-                           GPUcompute
+                           GPUcompute,
+			   OMPThreadsNum
                            );
 #ifdef DEBUGFLAGUP
 cudaDeviceSynchronize();

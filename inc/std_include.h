@@ -29,6 +29,7 @@ standard library headers
 #include <stdexcept>
 #include <cassert>
 #include <vector>
+#include <omp.h>
 
 using namespace std;
 

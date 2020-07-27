@@ -2,6 +2,11 @@
 
 ### Changes in progress
 
+### gpuDelaunayTriangulation version 0.3
+
+* best versions of kernels selects 
+* openMP use of multiple CPU threads possible
+
 ### gpuDelaunayTriangulation version 0.2
 
 * testing and optimization

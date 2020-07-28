@@ -198,57 +198,71 @@ __host__ __device__ void test_circumcircle_kernel_function(int idx,
     int3 i1 = d_circumcircles[idx];
     //the vertex we will take to be the origin, and its cell position
     double2 v = d_pt[i1.x];
-    int ib=floor(v.x/boxsize);
-    int jb=floor(v.y/boxsize);
+    int cc,dd,cx,cy,bin,newidx,cell_x,cell_y,xOrY,cell_rad;
 
-    double2 pt1,pt2;
+    double2 pt1,pt2,Q;
     Box.minDist(d_pt[i1.y],v,pt1);
     Box.minDist(d_pt[i1.z],v,pt2);
 
 
     //get the circumcircle
-    double2 Q;
-    double rad;
-    Circumcircle(pt1,pt2,Q,rad);
+    double currentRadius;
+    Circumcircle(pt1,pt2,Q,currentRadius);
+    double2 QinBox = v+Q;
+    Box.putInBoxReal(QinBox);
+    cell_x = (int)floor(QinBox.x/boxsize) % xsize;
+    cell_y = (int)floor(QinBox.y/boxsize) % ysize;
 
     //look through cells for other particles...re-use pt1 and pt2 variables below
     bool badParticle = false;
-    int wcheck = ceil(rad/boxsize)+1;
+    xOrY = max(xsize,ysize);
+    cell_rad = min((int) ceil(currentRadius/boxsize),xOrY/2);
+    double rad2 = currentRadius*currentRadius;
 
-    if(wcheck > xsize/2) wcheck = xsize/2;
-    rad = rad*rad;
-    for (int ii = ib-wcheck; ii <= ib+wcheck; ++ii)
+    cell_rad = (2*cell_rad+1);
+    cc = 0;
+    dd = 0;
+
+    for (int cellSpiral = 0; cellSpiral < cell_rad*cell_rad; ++cellSpiral)
         {
-        for (int jj = jb-wcheck; jj <= jb+wcheck; ++jj)
+        cx = positiveModulo(cell_x+dd,xsize);
+        cy = positiveModulo(cell_y+cc,ysize);
+
+        //cue up the next pair of (dd,cc) cell indices relative to cell_x and cell_y
+        if(abs(dd) <= abs(cc) && (dd != cc || dd >=0 ))
             {
-            int cx = ii;
-            if(cx < 0) cx += xsize;
-            if(cx >= xsize) cx -= xsize;
-            int cy = jj;
-            if(cy < 0) cy += ysize;
-            if(cy >= ysize) cy -= ysize;
+            if (cc >=0)
+                dd += 1;
+            else
+                dd -= 1;
+            }
+        else
+            {
+            if (dd >=0)
+                cc -= 1;
+            else
+                cc += 1;
+            }
+        bin = ci(cx,cy);
 
-            int bin = ci(cx,cy);
+        for (int pp = 0; pp < d_cell_sizes[bin]; ++pp)
+            {
+            newidx = d_cell_idx[cli(pp,bin)];
+            if(newidx == i1.x || newidx == i1.y || newidx == i1.z)
+                continue;
 
-            for (int pp = 0; pp < d_cell_sizes[bin]; ++pp)
+            Box.minDist(d_pt[newidx],v,pt1);
+            //everything is pt1 and Q are now already relative positions... no need for a minDist call
+            pt2 = pt1-Q; //Box.minDist(pt1,Q,pt2);
+
+            //if it's in the circumcircle, check that its not one of the three points
+            if(pt2.x*pt2.x+pt2.y*pt2.y < rad2)
                 {
-                int newidx = d_cell_idx[cli(pp,bin)];
-                if(newidx == i1.x || newidx == i1.y || newidx == i1.z)
-                    continue;
-
-                Box.minDist(d_pt[newidx],v,pt1);
-                Box.minDist(pt1,Q,pt2);
-
-                //if it's in the circumcircle, check that its not one of the three points
-                if(pt2.x*pt2.x+pt2.y*pt2.y < rad)
-                    {
-                    d_repair[newidx] = newidx;
-                    badParticle = true;
-                    };
-                if(badParticle) break;
-                };//end loop over particles in the given cell
-            if(badParticle) break;
-            };
+                d_repair[newidx] = newidx;
+                badParticle = true;
+                };
+             if(badParticle) break;
+            };//end loop over particles in the given cell
         if(badParticle) break;
         };// end loop over cells
     if (badParticle)

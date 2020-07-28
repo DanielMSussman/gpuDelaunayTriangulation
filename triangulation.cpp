@@ -27,6 +27,13 @@ void printVec(vector<int> &a)
         cout<< a[ii] << "\t";
     cout << endl;
     }
+//! simple output of double2 vecs
+void printVec(vector<double2> &a)
+    {
+    for (int ii = 0; ii < a.size();++ii)
+        printf("{%f,%f}, ",a[ii].x,a[ii].y);
+    cout << endl;
+    }
 
 //To test the triangulation speed of more regular point patterns, initialize in a randomized square lattice
 void squareLattice(GPUArray<double2> &A, noiseSource &noise, int N)
@@ -81,7 +88,7 @@ void hilbertSortArray(GPUArray<double2> &A)
     }
 
 // Compare neighbors found by different algorithsm. vector<vector< int> > a la CGAL, vs GPUArray<int> together with another GPUArray<int> for number of neighbors each cell has
-void compareTriangulation(vector<vector<int> > &neighs, GPUArray<int> &gNeighs, GPUArray<int> &gNeighborNum, bool verbose = true)
+void compareTriangulation(vector<vector<int> > &neighs, GPUArray<int> &gNeighs, GPUArray<int> &gNeighborNum, vector<double2> &pos,bool verbose = true)
     {
     int failedCells = 0;
     int N = neighs.size();
@@ -121,9 +128,13 @@ void compareTriangulation(vector<vector<int> > &neighs, GPUArray<int> &gNeighs, 
             {
             if(verbose)
                 {
-                cout << " cell " << ii << " failed!";
+                cout << " cell " << ii << " failed!" << endl;
                 printVec(gpuNeighbors);
                 printVec(neighs[ii]);
+                vector<double2> ps(cpuNeighbors.size());
+                for(int i2 = 0; i2 < cpuNeighbors.size(); ++i2)
+                    ps[i2] = pos[neighs[ii][i2]];
+                printVec(ps);
                 }
             failedCells += 1;
             }
@@ -193,6 +204,7 @@ int main(int argc, char*argv[])
     PeriodicBoxPtr domain = make_shared<periodicBoundaries>(L,L);
 
     vector<pair<Point,int> > pts(N);
+    vector<double2 > ps(N);
     GPUArray<double2> gpuPts((unsigned int) N);
 
 if(programSwitch >=0) //global tests
@@ -260,6 +272,7 @@ cudaDeviceSynchronize();
             ArrayHandle<double2> gps(gpuPts,access_location::host,access_mode::read);
             for (int ii = 0; ii < N; ++ii)
                 {
+                ps[ii] = gps.data[ii];
                 pts[ii]=make_pair(Point(gps.data[ii].x,gps.data[ii].y),ii);
                 }
                 mProf.start("CGAL triangulation");
@@ -287,7 +300,7 @@ cudaDeviceSynchronize();
             {
             cout << "testing quality of triangulation..." << endl;
             mProf.start("triangulation comparison");
-            compareTriangulation(cgalTriangulation.allneighs, gpuTriangulation,cellNeighborNumber);
+            compareTriangulation(cgalTriangulation.allneighs, gpuTriangulation,cellNeighborNumber,ps);
             mProf.end("triangulation comparison");
             cout << "... testing done!" << endl;
             }
@@ -350,6 +363,7 @@ cudaDeviceSynchronize();
         ArrayHandle<double2> gps(gpuPts,access_location::host,access_mode::read);
         for (int ii = 0; ii < N; ++ii)
             {
+            ps[ii] = gps.data[ii];
             pts[ii]=make_pair(Point(gps.data[ii].x,gps.data[ii].y),ii);
             }
         mProf.start("CGAL triangulation");
@@ -357,7 +371,7 @@ cudaDeviceSynchronize();
         mProf.end("CGAL triangulation");
         }//end CGAL 
         mProf.start("triangulation comparison");
-        compareTriangulation(cgalTriangulation.allneighs, gpuTriangulation,cellNeighborNumber,false);
+        compareTriangulation(cgalTriangulation.allneighs, gpuTriangulation,cellNeighborNumber,ps,false);
         mProf.end("triangulation comparison");
         {
         ArrayHandle<double2> p(gpuPts,access_location::device,access_mode::readwrite);
@@ -386,7 +400,7 @@ cudaDeviceSynchronize();
     mProf.start("triangulation comparison");
 
     printf("comparing repaired triangulation with CGAL...");
-    compareTriangulation(cgalTriangulation.allneighs, gpuTriangulation,cellNeighborNumber);
+    compareTriangulation(cgalTriangulation.allneighs, gpuTriangulation,cellNeighborNumber,ps);
     printf("...done\n");
     mProf.end("triangulation comparison");
     }

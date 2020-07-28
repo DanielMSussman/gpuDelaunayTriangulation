@@ -22,7 +22,7 @@ void DelaunayGPU::initialize(int N, int maximumNeighborsGuess, double cellSize, 
     cellsize=cellSize;
     cListUpdated = false;
     setBox(bx);
-    sizeFixlist.resize(1);
+    circumcirclesAssist.resize(1);
     maxOneRingSize.resize(1);
     {
     ArrayHandle<int> ms(maxOneRingSize);
@@ -56,18 +56,10 @@ void DelaunayGPU::initializeCellList()
     }
 
 //sets the bucket lists with the points that they contain to use later in the triangulation
-void DelaunayGPU::setList(double csize, GPUArray<double2> &points)
+void DelaunayGPU::setCellListSize(double csize)
     {
-    cListUpdated=true;
-    if(points.getNumElements()!=Ncells || points.getNumElements()==0)
-    {
-	    printf("GPU DT: No points for cell lists\n");
-            throw std::exception();
-    }
-    if(GPUcompute)
-        cList.computeGPU(points);
-    else
-        cList.compute(points);
+    cellsize = csize;
+    initializeCellList();
     }
 
 //automatically goes thorough the process of updating the points
@@ -594,13 +586,13 @@ void DelaunayGPU::testAndRepairDelaunayTriangulation(GPUArray<double2> &points, 
     //resize circumcircles array if needed and populate:
     if(delGPUcircumcircles.getNumElements()!= 2*points.getNumElements())
         delGPUcircumcircles.resize(2*points.getNumElements());
-    prof.start("getCCS");
+    prof.start("getC idxs");
     if(GPUcompute)
         getCircumcirclesGPU(GPUTriangulation,cellNeighborNum);
     else
         getCircumcirclesCPU(GPUTriangulation,cellNeighborNum);
 
-    prof.end("getCCS");
+    prof.end("getC idxs");
 
     prof.start("cellList");
     if(GPUcompute)
@@ -631,10 +623,15 @@ only intended to be used as part of the testAndRepair sequence
 */
 void DelaunayGPU::testTriangulation(GPUArray<double2> &points)
     {
+    prof.start("resetRepair");
     {
     ArrayHandle<int> d_repair(repair,access_location::device,access_mode::readwrite);
     gpu_set_array(d_repair.data,-1,Ncells);
     }
+#ifdef DEBUGFLAGUP
+cudaDeviceSynchronize();
+#endif
+    prof.end("resetRepair");
     //access data handles
     ArrayHandle<double2> d_pt(points,access_location::device,access_mode::read);
 
@@ -669,7 +666,7 @@ cudaDeviceSynchronize();
 
 void DelaunayGPU::getCircumcirclesGPU(GPUArray<int> &GPUTriangulation, GPUArray<int> &cellNeighborNum)
     {
-    ArrayHandle<int> assist(sizeFixlist,access_location::device,access_mode::readwrite);
+    ArrayHandle<int> assist(circumcirclesAssist,access_location::device,access_mode::readwrite);
     gpu_set_array(assist.data,0,1);//set the fixlist to zero, for indexing purposes
     ArrayHandle<int> neighbors(GPUTriangulation,access_location::device,access_mode::read);
     ArrayHandle<int> neighnum(cellNeighborNum,access_location::device,access_mode::read);

@@ -45,6 +45,18 @@ using namespace std;
 
 #define cur_norm curand_normal_double
 
+//texture load templating correctly for old cuda devices and host functions
+template<typename T>
+__host__ __device__ __forceinline__ T ldgHD(const T* ptr)
+    {
+    #if __CUDA_ARCH__ >=350
+        return __ldg(ptr);
+    #else
+        return *ptr;
+    #endif
+    }
+
+
 //!Handle errors in kernel calls...returns file and line numbers if cudaSuccess doesn't pan out
 static void HandleError(cudaError_t err, const char *file, int line)
     {

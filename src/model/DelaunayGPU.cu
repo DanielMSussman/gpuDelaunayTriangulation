@@ -197,12 +197,12 @@ __host__ __device__ void test_circumcircle_kernel_function(int idx,
     //the indices of particles forming the circumcircle
     int3 i1 = d_circumcircles[idx];
     //the vertex we will take to be the origin, and its cell position
-    double2 v = d_pt[i1.x];
+    double2 v = ldgHD(&d_pt[i1.x]);
     int cc,dd,cx,cy,bin,newidx,cell_x,cell_y,xOrY,cell_rad;
 
     double2 pt1,pt2,Q;
-    Box.minDist(d_pt[i1.y],v,pt1);
-    Box.minDist(d_pt[i1.z],v,pt2);
+    Box.minDist(ldgHD(&d_pt[i1.y]),v,pt1);
+    Box.minDist(ldgHD(&d_pt[i1.z]),v,pt2);
 
 
     //get the circumcircle
@@ -251,7 +251,7 @@ __host__ __device__ void test_circumcircle_kernel_function(int idx,
             if(newidx == i1.x || newidx == i1.y || newidx == i1.z)
                 continue;
 
-            Box.minDist(d_pt[newidx],v,pt1);
+            Box.minDist(ldgHD(&d_pt[newidx]),v,pt1);
             //everything is pt1 and Q are now already relative positions... no need for a minDist call
             pt2 = pt1-Q; //Box.minDist(pt1,Q,pt2);
 
@@ -402,7 +402,7 @@ t1=clock();
     int pp, w, j, jj, cx, cy, cc, dd, cell_rad, bin, cell_x, cell_y;
 
 
-    v = d_pt[kidx];
+    v = ldgHD(&d_pt[kidx]);
     bool flag=false,removeCCW,firstRemove;
 
     int baseIdx = GPU_idx(0,kidx);
@@ -474,7 +474,7 @@ blah2+=1;
 #endif
                     //how far is the point from the circumcircle's center?
                     rr=currentRadius*currentRadius;
-                    Box.minDist(d_pt[newidx], v, disp); //disp = vector between new point and the point we're constructing the one ring of
+                    Box.minDist(ldgHD(&d_pt[newidx]), v, disp); //disp = vector between new point and the point we're constructing the one ring of
                     Box.minDist(disp,Q[GPU_idx(jj, kidx)],pt1); // pt1 gets overwritten by vector between new point and Pi's circumcenter
                     if(pt1.x*pt1.x+pt1.y*pt1.y>rr)continue;
 #ifdef DEBUGFLAGUP
@@ -735,7 +735,7 @@ __host__ __device__ void get_oneRing_function(int kidx,
     unsigned int newidx, aa, removed, removeCW;
     int pp, m, w, j, jj, cx, cy, cc, dd, cell_rad, bin, cell_x, cell_y;
 
-    v = d_pt[kidx];
+    v = ldgHD(&d_pt[kidx]);
     unsigned int poly_size=d_neighnum[kidx];
     bool flag=false, removeCCW, firstRemove;
 
@@ -788,7 +788,7 @@ __host__ __device__ void get_oneRing_function(int kidx,
 
             for(aa = 0; aa < d_cell_sizes[bin]; ++aa) //check points in cell
                 {
-                newidx = d_cell_idx[cli(aa,bin)];
+                newidx = ldgHD(&d_cell_idx[cli(aa,bin)]);
                 if(newidx == kidx || newidx == P_idx[baseIdx]) continue;
                 bool skipPoint = false;
                 for (int pidx = jj; pidx < poly_size; ++pidx)
@@ -797,7 +797,7 @@ __host__ __device__ void get_oneRing_function(int kidx,
                 //6-Compute the half-plane Hv defined by the bissector of v and c, containing c
                 //how far is the point from the circumcircle's center?
                 rr=currentRadius*currentRadius;
-                Box.minDist(d_pt[newidx], v, disp); //disp = vector between new point and the point we're constructing the one ring of
+                Box.minDist(ldgHD(&d_pt[newidx]), v, disp); //disp = vector between new point and the point we're constructing the one ring of
                 Box.minDist(disp,currentQ,pt1); // pt1 gets overwritten by vector between new point and Pi's circumcenter
                 if(pt1.x*pt1.x+pt1.y*pt1.y>rr)continue;
                 //calculate half-plane bissector

@@ -36,7 +36,7 @@ __global__ void gpu_compute_cell_list_kernel(double2 *d_pt,
     if (idx >= Np)
         return;
 
-    double2 pos = d_pt[idx];
+    double2 pos = ldgHD(&d_pt[idx]);
 
     int ibin = max(0,min(xsize-1,(int)floor(pos.x/boxsize)));
     int jbin = max(0,min(xsize-1,(int)floor(pos.y/boxsize)));

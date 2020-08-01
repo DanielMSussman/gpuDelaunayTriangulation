@@ -61,5 +61,9 @@ class DelaunayCGAL
         void PeriodicTriangulationSquareDomain(vector<pair<Point,int> > &points,double boxX, double boxY);
         //! given a similar vector of points, calculate the neighbors of the first point in a non-periodic domain.
         bool LocalTriangulation(const vector<pair<LPoint,int> > &points, vector<int> &neighs);
+
+        //! Given a vector of points (in the form of pair<PDT::Point p ,int index>), just time CGAL's triangulation algorithm
+        void PeriodicTriangulationSquareDomainTiming(vector<pair<Point,int> > &points,double boxX, double boxY);
+
     };
 #endif

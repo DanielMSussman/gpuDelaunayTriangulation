@@ -275,6 +275,13 @@ cudaDeviceSynchronize();
                 ps[ii] = gps.data[ii];
                 pts[ii]=make_pair(Point(gps.data[ii].x,gps.data[ii].y),ii);
                 }
+                /*
+                //Time just the triangulation routine (without walking
+               // through the triangulation to put it into a form comparable to what delGPU generates
+                mProf.start("raw CGAL triangulation");
+            cgalTriangulation.PeriodicTriangulationSquareDomainTiming(pts,L,L);
+                mProf.end("raw CGAL triangulation");
+                */
                 mProf.start("CGAL triangulation");
             cgalTriangulation.PeriodicTriangulation(pts,L,0,0,L);
                 mProf.end("CGAL triangulation");

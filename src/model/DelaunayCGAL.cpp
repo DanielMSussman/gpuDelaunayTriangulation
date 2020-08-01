@@ -229,3 +229,14 @@ void DelaunayCGAL::PeriodicTriangulationSquareDomain(vector<pair<Point,int> > &V
         allneighs[ii]=neighs;
         };
     };
+
+void DelaunayCGAL::PeriodicTriangulationSquareDomainTiming(vector<pair<Point,int> > &V, double boxX, double boxY)
+    {
+    int vnum = V.size();
+
+    Iso_rectangle domain(0.0,0.0,boxX,boxY);
+    PDT T(V.begin(),V.end(),domain);
+
+    T.convert_to_1_sheeted_covering();
+    };
+

@@ -375,11 +375,6 @@ t1=clock();
     bool flag=false,removeCCW,firstRemove;
     double2 currentQ;
     int baseIdx = GPU_idx(0,kidx);
-    bool virtualPoints = true;
-    int whileLoopCounter =0;
-    while(virtualPoints && whileLoopCounter < 1)
-    {
-
     for(jj=0; jj<poly_size; jj++)
         {
         currentQ = Q[GPU_idx(jj,kidx)];
@@ -592,14 +587,6 @@ t7 += clock()-t2;
             flag=false;
             }
         }//end iterative loop over all edges of the 1-ring
-    virtualPoints = false;
-    whileLoopCounter +=1;
-    for (int pCheck = 0; pCheck < poly_size; ++pCheck)
-        {
-        if(P_idx[GPU_idx(pCheck,kidx)] == -1)
-            virtualPoints = true;
-        }
-    }//end while loop
 
     d_neighnum[kidx]=poly_size;
 #ifdef DEBUGFLAGUP

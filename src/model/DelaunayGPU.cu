@@ -19,10 +19,22 @@ __host__ __device__ inline double checkCCW(const double2 pa, const double2 pb, c
     {
     return (pa.x - pb.x) * (pa.y - pc.y) - (pa.y - pb.y) * (pa.x - pc.x);
     }
+
 __host__ __device__ inline int checkCW(const double pax, const double pay, const double pbx, const double pby, const double pcx, const double pcy)
     {
     return ((pax - pbx) * (pay - pcy) - (pay - pby) * (pax - pcx)) >0 ? 0 : 1;
     }
+//an extremely specialized version of checkCW, where pcx and pcy are the circumcenter of (0,P1,P2)
+__host__ __device__ inline int checkCW(const double pax, const double pay, const double pbx, const double pby, const double2 p1,const double2 p2)
+    {
+    double den = p1.y*p2.x-p1.x*p2.y;
+    double p1Squared = p1.x*p1.x+p1.y*p1.y;
+    double p2Squared = p2.x*p2.x+p2.y*p2.y;
+    double temp1 = 0.5*(p1.x*p2Squared - p2.x*p1Squared)/den;
+    double temp2 = 0.5*(p2.y*p1Squared - p1.y*p2Squared)/den;
+    return ((pax-pbx)*(pay+temp1) - (pay-pby)*(pax+temp2)) > 0 ? 0 : 1;
+    }
+
 __host__ __device__ inline unsigned positiveModulo(int i, unsigned n)
     {
     int mod = i % (int) n;
@@ -377,6 +389,7 @@ t1=clock();
     bool flag=false,removeCCW,firstRemove;
 
     int baseIdx = GPU_idx(0,kidx);
+
     for(jj=0; jj<poly_size; jj++)
         {
         currentRadius = Q_rad[GPU_idx(jj,kidx)];
@@ -596,7 +609,37 @@ t7 += clock()-t2;
             }
         }//end iterative loop over all edges of the 1-ring
 
-    d_neighnum[kidx]=poly_size;
+    //remove any points that are still -1 in the P_idx 
+if(kidx==0)
+    {
+    for (int ii =0 ; ii < poly_size; ++ii)
+        printf("pidx (%i,%f)\t",P_idx[GPU_idx(ii,kidx)],P[GPU_idx(ii,kidx)].x);
+    printf("\n");
+    }
+    int truePolySize = 0;
+    for (int ii = 0; ii < poly_size; ++ii)
+        {
+        if(P_idx[GPU_idx(ii,kidx)]!= -1)
+            {
+            P[GPU_idx(truePolySize,kidx)] = P[GPU_idx(ii,kidx)];
+            P_idx[GPU_idx(truePolySize,kidx)] = P_idx[GPU_idx(ii,kidx)];
+            Q[GPU_idx(truePolySize,kidx)] = Q[GPU_idx(ii,kidx)];
+            Q_rad[GPU_idx(truePolySize,kidx)] = Q_rad[GPU_idx(ii,kidx)];
+            truePolySize +=1;
+            }
+        else
+            {
+            printf("asd %i\n",kidx);
+            }
+        }
+
+    d_neighnum[kidx]=truePolySize;
+if(kidx==0)
+    {
+    for (int ii =0 ; ii < poly_size; ++ii)
+        printf("pidx (%i,%f)\t",P_idx[GPU_idx(ii,kidx)],P[GPU_idx(ii,kidx)].x);
+    printf("\n");
+    }
 #ifdef DEBUGFLAGUP
     if(kidx==spotcheck)
         {
@@ -710,16 +753,38 @@ __host__ __device__ void get_oneRing_function(int kidx,
     bool flag=false, removeCCW, firstRemove;
 
     int baseIdx = GPU_idx(0,kidx);
+
+
+    double2 curP,nextP;
+
     for(jj=0; jj<poly_size; jj++)
         {
-        currentQ = Q[baseIdx+jj];
+        curP =  P[baseIdx+jj];
+        Box.minDist(ldgHD(&(d_pt[P_idx[baseIdx+jj]])),v,nextP);
+if(kidx==0)
+    printf("%f,%f\t%f,%f\n",curP.x,curP.y,nextP.x,nextP.y);
+
+        nextP = P[baseIdx+(jj+1)%poly_size];
+        Box.minDist(ldgHD(&(d_pt[P_idx[baseIdx+(jj+1)%poly_size]])),v,curP);
+if(kidx==0)
+    {
+    printf("%f,%f\t%f,%f\n",curP.x,curP.y,nextP.x,nextP.y);
+    printf("%i,%i\t %f,%f\t %f,%f\n\n",P_idx[baseIdx+(jj+1)%poly_size],baseIdx+(jj+1)%poly_size,v.x,v.y,d_pt[P_idx[baseIdx+(jj+1)%poly_size]].x,d_pt[P_idx[baseIdx+(jj+1)%poly_size]].y);
+    }
+
+
+
+        curP =  P[baseIdx+jj];
+        nextP = P[baseIdx+(jj+1)%poly_size];
+        Circumcircle(curP,nextP,currentQ,currentRadius);
+//        currentQ = Q[baseIdx+jj];
         pt1=v+currentQ; //absolute position (within box) of circumcenter
         //v1=P[GPU_idx(jj, kidx)];
         //v2=P[GPU_idx((jj+1)%poly_size, kidx)];
         Box.putInBoxReal(pt1);
 
         //check neighbours of Q's cell inside the circumcircle
-        currentRadius = Q_rad[baseIdx+jj];
+//        currentRadius = Q_rad[baseIdx+jj];
         cell_x = (int)floor(pt1.x/boxsize) % xsize;
         cell_y = (int)floor(pt1.y/boxsize) % ysize;
         cell_rad = min((int) ceil(currentRadius/boxsize),xsize/2);
@@ -802,8 +867,11 @@ __host__ __device__ void get_oneRing_function(int kidx,
                 removed=0;
                 j=-1;
                 //which side will Q be at
-                cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[baseIdx+poly_size-1].x,Q[baseIdx+poly_size-1].y);
+                //cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[baseIdx+poly_size-1].x,Q[baseIdx+poly_size-1].y);
 
+                //Circumcenter(P[baseIdx+poly_size-1],P[baseIdx],tempQ);
+                //cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,tempQ.x,tempQ.y);
+                cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,P[baseIdx+poly_size-1],P[baseIdx]);
                 removeCW=cy;
                 if(cy!=cx)
                     {
@@ -815,7 +883,10 @@ __host__ __device__ void get_oneRing_function(int kidx,
 
                 for(w=jj; w<poly_size-1; w++)
                     {
-                    cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[baseIdx+w].x,Q[baseIdx+w].y);
+                    cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,P[baseIdx+w],P[baseIdx+w+1]);
+                    //Circumcenter(P[baseIdx+w],P[baseIdx+(w+1)],tempQ);
+                    //cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,tempQ.x,tempQ.y);
+                    //cy = checkCW(0.5*disp.x, 0.5*disp.y,xx,yy,Q[baseIdx+w].x,Q[baseIdx+w].y);
                     if(cy!=cx)
                         {
                         if(removeCCW==false)
@@ -831,18 +902,22 @@ __host__ __device__ void get_oneRing_function(int kidx,
                             {
                             if(firstRemove==false)
                                 {
+                                /*
                                 for(pp=w; pp<poly_size-1; pp++)
                                     {
                                     Q[baseIdx+pp]=Q[baseIdx+pp+1];
                                     }
+                                */
                                 for(pp=w; pp<poly_size-1; pp++)
                                     {
                                     P[baseIdx+pp]=P[baseIdx+pp+1];
                                     }
+                                    /*
                                 for(pp=w; pp<poly_size-1; pp++)
                                     {
                                     Q_rad[baseIdx+pp]=Q_rad[baseIdx+pp+1];
                                     }
+                                    */
                                 for(pp=w; pp<poly_size-1; pp++)
                                     {
                                     P_idx[baseIdx+pp]=P_idx[baseIdx+pp+1];
@@ -893,50 +968,50 @@ __host__ __device__ void get_oneRing_function(int kidx,
                         case 0:
                             break;
                         case 1:
-                            rotateInMemoryRight<double2, 1>(Q,baseIdx,j,rotationSize);
+//                            rotateInMemoryRight<double2, 1>(Q,baseIdx,j,rotationSize);
                             rotateInMemoryRight<double2, 1>(P,baseIdx,j,rotationSize);
-                            rotateInMemoryRight<double,1>(Q_rad,baseIdx,j,rotationSize);
+//                            rotateInMemoryRight<double,1>(Q_rad,baseIdx,j,rotationSize);
                             rotateInMemoryRight<int, 1>(P_idx,baseIdx,j,rotationSize);
                             break;
                         case 2:
-                            rotateInMemoryRight<double2, 2>(Q,baseIdx,j,rotationSize);
+//                            rotateInMemoryRight<double2, 2>(Q,baseIdx,j,rotationSize);
                             rotateInMemoryRight<double2, 2>(P,baseIdx,j,rotationSize);
-                            rotateInMemoryRight<double,2>(Q_rad,baseIdx,j,rotationSize);
+//                            rotateInMemoryRight<double,2>(Q_rad,baseIdx,j,rotationSize);
                             rotateInMemoryRight<int, 2>(P_idx,baseIdx,j,rotationSize);
                             break;
                         case 3:
-                            rotateInMemoryRight<double2, 3>(Q,baseIdx,j,rotationSize);
+//                            rotateInMemoryRight<double2, 3>(Q,baseIdx,j,rotationSize);
                             rotateInMemoryRight<double2, 3>(P,baseIdx,j,rotationSize);
-                            rotateInMemoryRight<double,3>(Q_rad,baseIdx,j,rotationSize);
+//                            rotateInMemoryRight<double,3>(Q_rad,baseIdx,j,rotationSize);
                             rotateInMemoryRight<int, 3>(P_idx,baseIdx,j,rotationSize);
                             break;
                         case 4:
-                            rotateInMemoryRight<double2, 4>(Q,baseIdx,j,rotationSize);
+//                            rotateInMemoryRight<double2, 4>(Q,baseIdx,j,rotationSize);
                             rotateInMemoryRight<double2, 4>(P,baseIdx,j,rotationSize);
-                            rotateInMemoryRight<double,4>(Q_rad,baseIdx,j,rotationSize);
+//                          rotateInMemoryRight<double,4>(Q_rad,baseIdx,j,rotationSize);
                             rotateInMemoryRight<int, 4>(P_idx,baseIdx,j,rotationSize);
                             break;
                         default:
-                            rotateInMemoryRight(Q,baseIdx,j,rotationSize);
+//                            rotateInMemoryRight(Q,baseIdx,j,rotationSize);
                             rotateInMemoryRight(P,baseIdx,j,rotationSize);
-                            rotateInMemoryRight(Q_rad,baseIdx,j,rotationSize);
+//                            rotateInMemoryRight(Q_rad,baseIdx,j,rotationSize);
                             rotateInMemoryRight(P_idx,baseIdx,j,rotationSize);
                         }
                     #else
                     for(pp=poly_size-2; pp>j; pp--)
                         {
-                        Q[GPU_idx(pp+1,kidx)]=Q[GPU_idx(pp,kidx)];
+//                        Q[GPU_idx(pp+1,kidx)]=Q[GPU_idx(pp,kidx)];
                         P[GPU_idx(pp+1,kidx)]=P[GPU_idx(pp,kidx)];
-                        Q_rad[GPU_idx(pp+1,kidx)]=Q_rad[GPU_idx(pp,kidx)];
+//                        Q_rad[GPU_idx(pp+1,kidx)]=Q_rad[GPU_idx(pp,kidx)];
                         P_idx[GPU_idx(pp+1,kidx)]=P_idx[GPU_idx(pp,kidx)];
                         }
                     #endif
                     }
                 m=(j+1)%poly_size;
-                Q[baseIdx+m]=pt2;
-                Q[baseIdx+j]=pt1;
-                Q_rad[baseIdx+m]=yy;
-                Q_rad[baseIdx+j]=xx;
+//                Q[baseIdx+m]=pt2;
+//                Q[baseIdx+j]=pt1;
+//                Q_rad[baseIdx+m]=yy;
+//                Q_rad[baseIdx+j]=xx;
 
                 P[baseIdx+m]=disp;
                 P_idx[baseIdx+m]=newidx;

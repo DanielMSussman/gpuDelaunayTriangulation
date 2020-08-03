@@ -57,102 +57,111 @@ template<>
 __device__ inline void rotateInMemoryRight<double2,2>( double2 *inList, int saveIdx, int rotationOffset,int rotationSize)
     {
     double2 temp1,temp2;
-    temp1 = inList[saveIdx+rotationSize+rotationOffset-1];
-    temp2 = inList[saveIdx+rotationSize+rotationOffset];
-    inList[saveIdx+rotationSize+rotationOffset] = temp1;
-    inList[saveIdx+rotationSize+rotationOffset+1] = temp2;
+    int baseIdx = saveIdx+rotationSize+rotationOffset;
+    temp1 = inList[baseIdx-1];
+    temp2 = inList[baseIdx];
+    inList[baseIdx] = temp1;
+    inList[baseIdx+1] = temp2;
     };
 template<>
 __device__ inline void rotateInMemoryRight<double,2>(double *inList, int saveIdx, int rotationOffset,int rotationSize)
     {
     double2 temp;
-    temp.x = inList[saveIdx+rotationSize+rotationOffset-1];
-    temp.y = inList[saveIdx+rotationSize+rotationOffset];
-    inList[saveIdx+rotationSize+rotationOffset] = temp.x;
-    inList[saveIdx+rotationSize+rotationOffset+1] = temp.y;
+    int baseIdx = saveIdx+rotationSize+rotationOffset;
+    temp.x = inList[baseIdx-1];
+    temp.y = inList[baseIdx];
+    inList[baseIdx] = temp.x;
+    inList[baseIdx+1] = temp.y;
     };
 
 template<>
 __device__ inline void rotateInMemoryRight<int,2>( int *inList, int saveIdx, int rotationOffset,int rotationSize)
     {
     int2 temp;
-    temp.x = inList[saveIdx+rotationSize+rotationOffset-1];
-    temp.y = inList[saveIdx+rotationSize+rotationOffset];
-    inList[saveIdx+rotationSize+rotationOffset] = temp.x;
-    inList[saveIdx+rotationSize+rotationOffset+1] = temp.y;
+    int baseIdx = saveIdx+rotationSize+rotationOffset;
+    temp.x = inList[baseIdx-1];
+    temp.y = inList[baseIdx];
+    inList[baseIdx] = temp.x;
+    inList[baseIdx+1] = temp.y;
     };
 template<>
 __device__ inline void rotateInMemoryRight<double2,3>( double2 *inList, int saveIdx, int rotationOffset,int rotationSize)
     {
     double2 temp1,temp2,temp3;
-    temp1 = inList[saveIdx+rotationSize+rotationOffset-2];
-    temp2 = inList[saveIdx+rotationSize+rotationOffset-1];
-    temp3 = inList[saveIdx+rotationSize+rotationOffset];
-    inList[saveIdx+rotationSize+rotationOffset-1] = temp1;
-    inList[saveIdx+rotationSize+rotationOffset] = temp2;
-    inList[saveIdx+rotationSize+rotationOffset+1] = temp3;
+    int baseIdx = saveIdx+rotationSize+rotationOffset;
+    temp1 = inList[baseIdx-2];
+    temp2 = inList[baseIdx-1];
+    temp3 = inList[baseIdx];
+    inList[baseIdx-1] = temp1;
+    inList[baseIdx] = temp2;
+    inList[baseIdx+1] = temp3;
     };
 template<>
 __device__ inline void rotateInMemoryRight<double,3>(double *inList, int saveIdx, int rotationOffset,int rotationSize)
     {
     double3 temp;
-    temp.x = inList[saveIdx+rotationSize+rotationOffset-2];
-    temp.y = inList[saveIdx+rotationSize+rotationOffset-1];
-    temp.z = inList[saveIdx+rotationSize+rotationOffset];
-    inList[saveIdx+rotationSize+rotationOffset-1] = temp.x;
-    inList[saveIdx+rotationSize+rotationOffset] = temp.y;
-    inList[saveIdx+rotationSize+rotationOffset+1] = temp.z;
+    int baseIdx = saveIdx+rotationSize+rotationOffset;
+    temp.x = inList[baseIdx-2];
+    temp.y = inList[baseIdx-1];
+    temp.z = inList[baseIdx];
+    inList[baseIdx-1] = temp.x;
+    inList[baseIdx] = temp.y;
+    inList[baseIdx+1] = temp.z;
     };
 
 template<>
 __device__ inline void rotateInMemoryRight<int,3>( int *inList, int saveIdx, int rotationOffset,int rotationSize)
     {
     int3 temp;
-    temp.x = inList[saveIdx+rotationSize+rotationOffset-2];
-    temp.y = inList[saveIdx+rotationSize+rotationOffset-1];
-    temp.z = inList[saveIdx+rotationSize+rotationOffset];
-    inList[saveIdx+rotationSize+rotationOffset-1] = temp.x;
-    inList[saveIdx+rotationSize+rotationOffset] = temp.y;
-    inList[saveIdx+rotationSize+rotationOffset+1] = temp.z;
+    int baseIdx = saveIdx+rotationSize+rotationOffset;
+    temp.x = inList[baseIdx-2];
+    temp.y = inList[baseIdx-1];
+    temp.z = inList[baseIdx];
+    inList[baseIdx-1] = temp.x;
+    inList[baseIdx] = temp.y;
+    inList[baseIdx+1] = temp.z;
     };
 template<>
 __device__ inline void rotateInMemoryRight<double2,4>( double2 *inList, int saveIdx, int rotationOffset,int rotationSize)
     {
     double2 temp1,temp2,temp3,temp4;
-    temp1 = inList[saveIdx+rotationSize+rotationOffset-3];
-    temp2 = inList[saveIdx+rotationSize+rotationOffset-2];
-    temp3 = inList[saveIdx+rotationSize+rotationOffset-1];
-    temp4 = inList[saveIdx+rotationSize+rotationOffset];
-    inList[saveIdx+rotationSize+rotationOffset-2] = temp1;
-    inList[saveIdx+rotationSize+rotationOffset-1] = temp2;
-    inList[saveIdx+rotationSize+rotationOffset] = temp3;
-    inList[saveIdx+rotationSize+rotationOffset+1] = temp4;
+    int baseIdx = saveIdx+rotationSize+rotationOffset;
+    temp1 = inList[baseIdx-3];
+    temp2 = inList[baseIdx-2];
+    temp3 = inList[baseIdx-1];
+    temp4 = inList[baseIdx];
+    inList[baseIdx-2] = temp1;
+    inList[baseIdx-1] = temp2;
+    inList[baseIdx] = temp3;
+    inList[baseIdx+1] = temp4;
     };
 template<>
 __device__ inline void rotateInMemoryRight<double,4>(double *inList, int saveIdx, int rotationOffset,int rotationSize)
     {
     double4 temp;
-    temp.x = inList[saveIdx+rotationSize+rotationOffset-3];
-    temp.y = inList[saveIdx+rotationSize+rotationOffset-2];
-    temp.z = inList[saveIdx+rotationSize+rotationOffset-1];
-    temp.w = inList[saveIdx+rotationSize+rotationOffset];
-    inList[saveIdx+rotationSize+rotationOffset-2] = temp.x;
-    inList[saveIdx+rotationSize+rotationOffset-1] = temp.y;
-    inList[saveIdx+rotationSize+rotationOffset] = temp.z;
-    inList[saveIdx+rotationSize+rotationOffset+1] = temp.w;
+    int baseIdx = saveIdx+rotationSize+rotationOffset;
+    temp.x = inList[baseIdx-3];
+    temp.y = inList[baseIdx-2];
+    temp.z = inList[baseIdx-1];
+    temp.w = inList[baseIdx];
+    inList[baseIdx-2] = temp.x;
+    inList[baseIdx-1] = temp.y;
+    inList[baseIdx] = temp.z;
+    inList[baseIdx+1] = temp.w;
     };
 template<>
 __device__ inline void rotateInMemoryRight<int,4>( int *inList, int saveIdx, int rotationOffset,int rotationSize)
     {
     int4 temp;
-    temp.x = inList[saveIdx+rotationSize+rotationOffset-3];
-    temp.y = inList[saveIdx+rotationSize+rotationOffset-2];
-    temp.z = inList[saveIdx+rotationSize+rotationOffset-1];
-    temp.w = inList[saveIdx+rotationSize+rotationOffset];
-    inList[saveIdx+rotationSize+rotationOffset-2] = temp.x;
-    inList[saveIdx+rotationSize+rotationOffset-1] = temp.y;
-    inList[saveIdx+rotationSize+rotationOffset] = temp.z;
-    inList[saveIdx+rotationSize+rotationOffset+1] = temp.w;
+    int baseIdx = saveIdx+rotationSize+rotationOffset;
+    temp.x = inList[baseIdx-3];
+    temp.y = inList[baseIdx-2];
+    temp.z = inList[baseIdx-1];
+    temp.w = inList[baseIdx];
+    inList[baseIdx-2] = temp.x;
+    inList[baseIdx-1] = temp.y;
+    inList[baseIdx] = temp.z;
+    inList[baseIdx+1] = temp.w;
     };
 
 /*!

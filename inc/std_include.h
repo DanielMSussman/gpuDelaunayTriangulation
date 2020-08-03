@@ -47,7 +47,7 @@ using namespace std;
 
 //texture load templating correctly for old cuda devices and host functions
 template<typename T>
-__host__ __device__ __forceinline__ T ldgHD(const T* ptr)
+HOSTDEVICE T ldgHD(const T* ptr)
     {
     #if __CUDA_ARCH__ >=350
         return __ldg(ptr);

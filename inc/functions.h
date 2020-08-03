@@ -175,13 +175,17 @@ inline __attribute__((always_inline)) void copyGPUArrayData(GPUArray<T> &data, v
     for (int i = 0; i < n; ++i) copydata[i] = handle.data[i];
     };
 
+//!The norm of a 2-component vector
+HOSTDEVICE double norm(const double2 &p)
+    {
+    return sqrt(p.x*p.x+p.y*p.y);
+    };
+
 //!Get the circumcenter and radius, given one of the points on the circumcircle is the origin...
 HOSTDEVICE void Circumcircle(const double2 &x1, const double2 &x2, double2 &xc, double &radius)
     {
     Circumcenter(x1,x2,xc);
-    double dx = (x1.x-xc.x);
-    double dy = (x1.y-xc.y);
-    radius = sqrt(dx*dx+dy*dy);
+    radius = sqrt(xc.x*xc.x+xc.y*xc.y);
     };
 
 //!Get the circumcenter and radius given three distinct points on the circumcirle
@@ -203,12 +207,6 @@ HOSTDEVICE bool ccw(const double2 &x1, const double2 &x2, const double2 &x3)
 HOSTDEVICE double dot(const double2 &p1, const double2 &p2)
     {
     return p1.x*p2.x+p1.y*p2.y;
-    };
-
-//!The norm of a 2-component vector
-HOSTDEVICE double norm(const double2 &p)
-    {
-    return sqrt(p.x*p.x+p.y*p.y);
     };
 
 //!test if a point lies in an annulus, given the inner and outer radii

@@ -327,10 +327,10 @@ __host__ __device__ void virtual_voronoi_calc_function(        int kidx,
                                               int xsize,
                                               int ysize,
                                               double boxsize,
-                                              periodicBoundaries &Box,
-                                              Index2D &ci,
-                                              Index2D &cli,
-                                              Index2D &GPU_idx
+                                              periodicBoundaries Box,
+                                              Index2D ci,
+                                              Index2D cli,
+                                              Index2D GPU_idx
                                               )
     {
     unsigned int poly_size;
@@ -689,10 +689,10 @@ __host__ __device__ void get_oneRing_function(int kidx,
                 int xsize,
                 int ysize,
                 double boxsize,
-                periodicBoundaries &Box,
-                Index2D &ci,
-                Index2D &cli,
-                Index2D &GPU_idx,
+                periodicBoundaries Box,
+                Index2D ci,
+                Index2D cli,
+                Index2D GPU_idx,
                 int const currentMaxNeighbors,
                 int *maximumNeighborNumber
                 )
@@ -1033,9 +1033,9 @@ __global__ void gpu_get_circumcircles_kernel(int *neighbors, int *neighnum, int3
 //////
 /////////////////////////////////////////////////////////////
 
-bool gpu_voronoi_calc_no_sort(double2* d_pt,
-                      unsigned int* d_cell_sizes,
-                      int* d_cell_idx,
+bool gpu_voronoi_calc_no_sort(const double2* d_pt,
+                      const unsigned int* d_cell_sizes,
+                      const int* d_cell_idx,
                       int* P_idx,
                       double2* P,
                       double2* Q,
@@ -1113,9 +1113,9 @@ bool gpu_voronoi_calc_no_sort(double2* d_pt,
     return true;
     }
 
-bool gpu_voronoi_calc(double2* d_pt,
-                unsigned int* d_cell_sizes,
-                int* d_cell_idx,
+bool gpu_voronoi_calc(const double2* d_pt,
+                const unsigned int* d_cell_sizes,
+                const int* d_cell_idx,
                 int* P_idx,
                 double2* P,
                 double2* Q,
@@ -1164,33 +1164,17 @@ bool gpu_voronoi_calc(double2* d_pt,
         return cudaSuccess;
         }
     else
-        {
-    	if(ompThreadNum==1)
-	        {
-            for(int tidx=0; tidx<Ncells; tidx++)
-                 virtual_voronoi_calc_function(tidx,d_pt,d_cell_sizes,d_cell_idx,
+        ompFunctionLoop((int)ompThreadNum,Ncells,virtual_voronoi_calc_function,d_pt,d_cell_sizes,d_cell_idx,
                           P_idx, P, Q,
                           d_neighnum,
                           Ncells, xsize,ysize, boxsize,Box,
                           ci,cli,GPU_idx);
-	        }
-    	else
-	        {
-	        #pragma omp parallel for num_threads(ompThreadNum)
-            for(int tidx=0; tidx<Ncells; tidx++)
-                 virtual_voronoi_calc_function(tidx,d_pt,d_cell_sizes,d_cell_idx,
-                          P_idx, P, Q,
-                          d_neighnum,
-                          Ncells, xsize,ysize, boxsize,Box,
-                          ci,cli,GPU_idx);
-	        }
-        }
     return true;
 };
 
-bool gpu_get_neighbors_no_sort(double2* d_pt, //the point set
-                unsigned int* d_cell_sizes,//points per bucket
-                int* d_cell_idx,//cellListIdxs
+bool gpu_get_neighbors_no_sort(const double2* d_pt, //the point set
+                const unsigned int* d_cell_sizes,//points per bucket
+                const int* d_cell_idx,//cellListIdxs
                 int* P_idx,//index of Del Neighbors
                 double2* P,//location del neighborPositions
                 double2* Q,//voronoi vertex positions
@@ -1255,9 +1239,9 @@ bool gpu_get_neighbors_no_sort(double2* d_pt, //the point set
     return true;
     };
 
-bool gpu_get_neighbors(double2* d_pt, //the point set
-                unsigned int* d_cell_sizes,//points per bucket
-                int* d_cell_idx,//cellListIdxs
+bool gpu_get_neighbors(const double2* d_pt, //the point set
+                const unsigned int* d_cell_sizes,//points per bucket
+                const int* d_cell_idx,//cellListIdxs
                 int* P_idx,//index of Del Neighbors
                 double2* P,//location del neighborPositions
                 double2* Q,//voronoi vertex positions
@@ -1294,25 +1278,12 @@ bool gpu_get_neighbors(double2* d_pt, //the point set
         return cudaSuccess;
         }
     else
-        {
-    	if(ompThreadNum==1)
-	        {
-            for(int tidx=0; tidx<Ncells; tidx++)
-                get_oneRing_function(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx,
-                                 P,Q,d_neighnum, Ncells,xsize,ysize,
-                                 boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,
-                                 maximumNeighborNum);
-	        }
-    	else
-	        {
-	        #pragma omp parallel for num_threads(ompThreadNum)
-            for(int tidx=0; tidx<Ncells; tidx++)
-                get_oneRing_function(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, 
-                                 P,Q,d_neighnum, Ncells,xsize,ysize,
-                                 boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,
-                                 maximumNeighborNum);
-	        }
-        }
+        ompFunctionLoop((int)ompThreadNum,Ncells,get_oneRing_function,
+                d_pt,d_cell_sizes,d_cell_idx,P_idx,
+                P,Q,d_neighnum, Ncells,xsize,ysize,
+                boxsize,Box,ci,cli,GPU_idx, currentMaxNeighborNum,
+                maximumNeighborNum);
+
     return true;
     };
 
@@ -1344,11 +1315,11 @@ bool gpu_get_circumcircles(int *neighbors,
 
 //!call the kernel to test every circumcenter to see if it's empty
 bool gpu_test_circumcircles(int *d_repair,
-                            int3 *d_ccs,
+                            const int3 *d_ccs,
                             int Nccs,
-                            double2 *d_pt,
-                            unsigned int *d_cell_sizes,
-                            int *d_idx,
+                            const double2 *d_pt,
+                            const unsigned int *d_cell_sizes,
+                            const int *d_idx,
                             int Np,
                             int xsize,
                             int ysize,
@@ -1388,23 +1359,9 @@ bool gpu_test_circumcircles(int *d_repair,
         return cudaSuccess;
         }
     else
-        {
-	    if(ompThreadNum==1)
-	        {
-            for(int idx = 0; idx < Nccs; ++idx)
-            test_circumcircle_kernel_function(idx,d_repair,d_ccs,d_pt,
+        ompFunctionLoop((int)ompThreadNum,Nccs,test_circumcircle_kernel_function,d_repair,d_ccs,d_pt,
                                       d_cell_sizes,d_idx,xsize,ysize,
                                       boxsize,Box,ci,cli);
-	        }
-	    else
-	        {
-	        #pragma omp parallel for num_threads(ompThreadNum)
-            for(int idx = 0; idx < Nccs; ++idx)
-                test_circumcircle_kernel_function(idx,d_repair,d_ccs,d_pt,
-                                      d_cell_sizes,d_idx,xsize,ysize,
-                                      boxsize,Box,ci,cli);
-            }
-	    }
     return true;
     };
 

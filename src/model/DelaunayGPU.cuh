@@ -27,11 +27,11 @@ bool gpu_get_circumcircles(int *neighbors,
 
 //test the triangulation to see if it is still valid
 bool gpu_test_circumcircles(int *d_repair,
-                            int3 *d_ccs,
+                            const int3 *d_ccs,
                             int Nccs,
-                            double2 *d_pt,
-                            unsigned int *d_cell_sizes,
-                            int *d_idx,
+                            const double2 *d_pt,
+                            const unsigned int *d_cell_sizes,
+                            const int *d_idx,
                             int Np,
                             int xsize,
                             int ysize,
@@ -43,9 +43,9 @@ bool gpu_test_circumcircles(int *d_repair,
                             unsigned int ompThreadNum
                             );
 //!Find enclosing polygons to serve as candidate one-rings
-bool gpu_voronoi_calc(double2* d_pt,
-                      unsigned int* d_cell_sizes,
-                      int* d_cell_idx,
+bool gpu_voronoi_calc(const double2* d_pt,
+                      const unsigned int* d_cell_sizes,
+                      const int* d_cell_idx,
                       int* P_idx,
                       double2* P,
                       double2* Q,
@@ -63,9 +63,9 @@ bool gpu_voronoi_calc(double2* d_pt,
                       );
 
 //!Find enclosing polygons to serve as candidate one-rings on the testAndRepair branch
-bool gpu_voronoi_calc_no_sort(double2* d_pt,
-                      unsigned int* d_cell_sizes,
-                      int* d_cell_idx,
+bool gpu_voronoi_calc_no_sort(const double2* d_pt,
+                      const unsigned int* d_cell_sizes,
+                      const int* d_cell_idx,
                       int* P_idx,
                       double2* P,
                       double2* Q,
@@ -84,9 +84,9 @@ bool gpu_voronoi_calc_no_sort(double2* d_pt,
                       );
 
 //!Find the one-rings on the global triangulation branch of the algorithm
-bool gpu_get_neighbors(double2* d_pt,
-                      unsigned int* d_cell_sizes,
-                      int* d_cell_idx,
+bool gpu_get_neighbors(const double2* d_pt,
+                      const unsigned int* d_cell_sizes,
+                      const int* d_cell_idx,
                       int* P_idx,
                       double2* P,
                       double2* Q,
@@ -106,9 +106,9 @@ bool gpu_get_neighbors(double2* d_pt,
                       );
 
 //!Find the one-rings on the testAndRepair branch
-bool gpu_get_neighbors_no_sort(double2* d_pt,
-                      unsigned int* d_cell_sizes,
-                      int* d_cell_idx,
+bool gpu_get_neighbors_no_sort(const double2* d_pt,
+                      const unsigned int* d_cell_sizes,
+                      const int* d_cell_idx,
                       int* P_idx,
                       double2* P,
                       double2* Q,

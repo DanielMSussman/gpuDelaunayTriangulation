@@ -218,7 +218,7 @@ int main(int argc, char*argv[])
     else
         {
         delGPU.setGPUcompute(false);
-        delGPU.setOMPthreads(abs(gpuSwitch));
+        delGPU.setOmpThreads(abs(gpuSwitch));
         }
     DelaunayCGAL cgalTriangulation;
 

@@ -40,7 +40,7 @@ bool gpu_test_circumcircles(int *d_repair,
                             Index2D &ci,
                             Index2D &cli,
                             bool GPUcompute,
-                            unsigned int OMPThreadsNum
+                            unsigned int ompThreadNum
                             );
 //!Find enclosing polygons to serve as candidate one-rings
 bool gpu_voronoi_calc(double2* d_pt,
@@ -59,7 +59,7 @@ bool gpu_voronoi_calc(double2* d_pt,
                       Index2D cli,
                       Index2D GPU_idx,
                       bool GPUcompute,
-                      unsigned int OMPThreadsNum
+                      unsigned int ompThreadNum
                       );
 
 //!Find enclosing polygons to serve as candidate one-rings on the testAndRepair branch
@@ -80,7 +80,7 @@ bool gpu_voronoi_calc_no_sort(double2* d_pt,
                       int* d_fixlist,
                       Index2D GPU_idx,
                       bool GPUcompute,
-                      unsigned int OMPThreadsNum
+                      unsigned int ompThreadNum
                       );
 
 //!Find the one-rings on the global triangulation branch of the algorithm
@@ -102,7 +102,7 @@ bool gpu_get_neighbors(double2* d_pt,
                       int* maximumNeighborNum,
                       int currentMaxNeighborNum,
                       bool GPUcompute,
-                      unsigned int OMPThreadsNum
+                      unsigned int ompThreadNum
                       );
 
 //!Find the one-rings on the testAndRepair branch
@@ -125,7 +125,7 @@ bool gpu_get_neighbors_no_sort(double2* d_pt,
                       int* maximumNeighborNum,
                       int currentMaxNeighborNum,
                       bool GPUcompute,
-                      unsigned int OMPThreadsNum
+                      unsigned int ompThreadNum
                       );
 
 /** @} */ //end of group declaration

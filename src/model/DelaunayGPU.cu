@@ -1050,7 +1050,7 @@ bool gpu_voronoi_calc_no_sort(double2* d_pt,
                       int* d_fixlist,
                       Index2D GPU_idx,
                       bool GPUcompute,
-		      unsigned int OMPThreadsNum
+		      unsigned int ompThreadNum
                       )
     {
     unsigned int block_size = THREADCOUNT;
@@ -1084,7 +1084,7 @@ bool gpu_voronoi_calc_no_sort(double2* d_pt,
         }
     else
         {
-    	if(OMPThreadsNum==1)
+    	if(ompThreadNum==1)
 	        {
             for(int tidx=0; tidx<Ncells; tidx++)
                 {
@@ -1098,7 +1098,7 @@ bool gpu_voronoi_calc_no_sort(double2* d_pt,
 	        }
     	else
 	        {
-	        #pragma omp parallel for num_threads(OMPThreadsNum)
+	        #pragma omp parallel for num_threads(ompThreadNum)
             for(int tidx=0; tidx<Ncells; tidx++)
                 {
                 if(d_fixlist[tidx]>=0)
@@ -1129,7 +1129,7 @@ bool gpu_voronoi_calc(double2* d_pt,
                 Index2D cli,
                 Index2D GPU_idx,
                 bool GPUcompute,
-		unsigned int OMPThreadsNum
+		unsigned int ompThreadNum
                 )
 {
     unsigned int block_size = THREADCOUNT;
@@ -1165,7 +1165,7 @@ bool gpu_voronoi_calc(double2* d_pt,
         }
     else
         {
-    	if(OMPThreadsNum==1)
+    	if(ompThreadNum==1)
 	        {
             for(int tidx=0; tidx<Ncells; tidx++)
                  virtual_voronoi_calc_function(tidx,d_pt,d_cell_sizes,d_cell_idx,
@@ -1176,7 +1176,7 @@ bool gpu_voronoi_calc(double2* d_pt,
 	        }
     	else
 	        {
-	        #pragma omp parallel for num_threads(OMPThreadsNum)
+	        #pragma omp parallel for num_threads(ompThreadNum)
             for(int tidx=0; tidx<Ncells; tidx++)
                  virtual_voronoi_calc_function(tidx,d_pt,d_cell_sizes,d_cell_idx,
                           P_idx, P, Q,
@@ -1207,7 +1207,7 @@ bool gpu_get_neighbors_no_sort(double2* d_pt, //the point set
                 int *maximumNeighborNum,
                 int currentMaxNeighborNum,
                 bool GPUcompute,
-		unsigned int OMPThreadsNum
+		unsigned int ompThreadNum
                 )
     {
     unsigned int block_size = THREADCOUNT;
@@ -1228,7 +1228,7 @@ bool gpu_get_neighbors_no_sort(double2* d_pt, //the point set
         }
     else
         {
-    	if(OMPThreadsNum==1)
+    	if(ompThreadNum==1)
 	        {
             for(int tidx=0; tidx<Ncells; tidx++)
                 {
@@ -1241,7 +1241,7 @@ bool gpu_get_neighbors_no_sort(double2* d_pt, //the point set
 	        }
     	else
 	        {
-            #pragma omp parallel for num_threads(OMPThreadsNum)
+            #pragma omp parallel for num_threads(ompThreadNum)
             for(int tidx=0; tidx<Ncells; tidx++)
                 {
                 if(d_fixlist[tidx]>=0)
@@ -1273,7 +1273,7 @@ bool gpu_get_neighbors(double2* d_pt, //the point set
                 int *maximumNeighborNum,
                 int currentMaxNeighborNum,
                 bool GPUcompute,
-		unsigned int OMPThreadsNum
+		unsigned int ompThreadNum
                 )
     {
     unsigned int block_size = THREADCOUNT;
@@ -1295,7 +1295,7 @@ bool gpu_get_neighbors(double2* d_pt, //the point set
         }
     else
         {
-    	if(OMPThreadsNum==1)
+    	if(ompThreadNum==1)
 	        {
             for(int tidx=0; tidx<Ncells; tidx++)
                 get_oneRing_function(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx,
@@ -1305,7 +1305,7 @@ bool gpu_get_neighbors(double2* d_pt, //the point set
 	        }
     	else
 	        {
-	        #pragma omp parallel for num_threads(OMPThreadsNum)
+	        #pragma omp parallel for num_threads(ompThreadNum)
             for(int tidx=0; tidx<Ncells; tidx++)
                 get_oneRing_function(tidx, d_pt,d_cell_sizes,d_cell_idx,P_idx, 
                                  P,Q,d_neighnum, Ncells,xsize,ysize,
@@ -1357,7 +1357,7 @@ bool gpu_test_circumcircles(int *d_repair,
                             Index2D &ci,
                             Index2D &cli,
                             bool GPUcompute,
-			    unsigned int OMPThreadsNum
+			    unsigned int ompThreadNum
                             )
     {
     unsigned int block_size = THREADCOUNT;
@@ -1389,7 +1389,7 @@ bool gpu_test_circumcircles(int *d_repair,
         }
     else
         {
-	    if(OMPThreadsNum==1)
+	    if(ompThreadNum==1)
 	        {
             for(int idx = 0; idx < Nccs; ++idx)
             test_circumcircle_kernel_function(idx,d_repair,d_ccs,d_pt,
@@ -1398,7 +1398,7 @@ bool gpu_test_circumcircles(int *d_repair,
 	        }
 	    else
 	        {
-	        #pragma omp parallel for num_threads(OMPThreadsNum)
+	        #pragma omp parallel for num_threads(ompThreadNum)
             for(int idx = 0; idx < Nccs; ++idx)
                 test_circumcircle_kernel_function(idx,d_repair,d_ccs,d_pt,
                                       d_cell_sizes,d_idx,xsize,ysize,

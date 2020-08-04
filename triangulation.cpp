@@ -242,7 +242,7 @@ if(programSwitch >=0) //global tests
     else
         {	
     	delGPU.setGPUcompute(false);
-	    delGPU.setOMPthreads(abs(gpuSwitch));
+	    delGPU.setOmpThreads(abs(gpuSwitch));
         }
     mProf.end("delGPU initialization");
 

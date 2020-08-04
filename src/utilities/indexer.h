@@ -20,7 +20,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS ``AS IS'' AND
 #ifdef NVCC
 #define HOSTDEVICE __host__ __device__ inline
 #else
-#define HOSTDEVICE inline __attribute__((always_inline))
+#define HOSTDEVICE __attribute__((always_inline)) inline
 #endif
 
 /*! \file indexer.h */

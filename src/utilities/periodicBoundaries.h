@@ -6,7 +6,7 @@
 #ifdef NVCC
 #define HOSTDEVICE __host__ __device__ inline
 #else
-#define HOSTDEVICE inline __attribute__((always_inline))
+#define HOSTDEVICE __attribute__((always_inline)) inline
 #endif
 
 /*! \file periodicBoundaries.h */

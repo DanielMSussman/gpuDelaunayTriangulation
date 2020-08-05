@@ -189,7 +189,7 @@ __device__ inline bool cellBucketInsideAngle(const double2 v, const int cx, cons
     }
 
 //per-circumcircle test function
-__host__ __device__ void test_circumcircle_kernel_function(int idx,
+__host__ __device__ inline void test_circumcircle_kernel_function(int idx,
                                               int* __restrict__ d_repair,
                                               const int3* __restrict__ d_circumcircles,
                                               const double2* __restrict__ d_pt,
@@ -315,7 +315,7 @@ __global__ void gpu_test_circumcircles_kernel(
 /*!
 device function carries out the task of finding a good enclosing polygon, using the virtual point and half-plane intersection method
 */
-__host__ __device__ void virtual_voronoi_calc_function(        int kidx,
+__host__ __device__ inline void virtual_voronoi_calc_function(        int kidx,
                                               const double2* __restrict__ d_pt,
                                               const unsigned int* __restrict__ d_cell_sizes,
                                               const int* __restrict__ d_cell_idx,
@@ -677,7 +677,7 @@ __global__ void gpu_voronoi_calc_global_kernel(const double2* __restrict__ d_pt,
 /*!
 device function that goes from a candidate 1-ring to an actual 1-ring
 */
-__host__ __device__ void get_oneRing_function(int kidx,
+__host__ __device__ inline void get_oneRing_function(int kidx,
                 const double2* __restrict__ d_pt,
                 const unsigned int* __restrict__ d_cell_sizes,
                 const int* __restrict__ d_cell_idx,

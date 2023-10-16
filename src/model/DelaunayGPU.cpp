@@ -502,6 +502,8 @@ bool DelaunayGPU::computeTriangulationRepairList(GPUArray<double2> &points, GPUA
             recomputeNeighbors = true;
             printf("Resizing potential neighbors from %i to %i and re-computing (computeTriangulationRepairList function)...\n",currentMaxOneRingSize,postCallMaxOneRingSize);
             resize(postCallMaxOneRingSize);
+            GPUTriangulation.resize(MaxSize*points.getNumElements());
+            globalDelaunayTriangulation(points,GPUTriangulation,cellNeighborNum);
             }
         };
     return recomputeNeighbors;
@@ -559,6 +561,8 @@ bool DelaunayGPU::get_neighbors(GPUArray<double2> &points, GPUArray<int> &GPUTri
             recomputeNeighbors = true;
             printf("resizing potential neighbors from %i to %i and re-computing (get_neighbors function)...\n",currentMaxOneRingSize,postCallMaxOneRingSize);
             resize(postCallMaxOneRingSize);
+            GPUTriangulation.resize(MaxSize*points.getNumElements());
+            globalDelaunayTriangulation(points,GPUTriangulation,cellNeighborNum);
             }
         };
     return recomputeNeighbors;
